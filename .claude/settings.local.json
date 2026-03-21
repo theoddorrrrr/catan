@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install:*)",
+      "Bash(npm --version)",
+      "Bash(npm install:*)",
+      "Bash(pnpm --filter @catan/shared build)",
+      "Bash(pnpm --filter @catan/shared test)"
+    ]
+  }
+}
