@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "client",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["packages/client/node_modules/vite/bin/vite.js", "dev", "--port", "3000", "--config", "packages/client/vite.config.ts"],
+      "port": 3000
+    }
+  ]
+}
