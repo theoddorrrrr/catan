@@ -52,9 +52,21 @@ export function setupSocketHandlers(
       }
 
       const { roomData, playerSession } = result;
+
+      // Device takeover: disconnect old socket if still connected
+      const oldSocketId = playerSession.socketId;
       roomManager.bindSocket(opts.sessionToken, socket.id);
       socketToSession.set(socket.id, opts.sessionToken);
       socket.join(roomData.room.roomCode);
+
+      if (oldSocketId && oldSocketId !== socket.id) {
+        const oldSocket = io.sockets.sockets.get(oldSocketId);
+        if (oldSocket) {
+          oldSocket.emit('session:takenOver');
+          socketToSession.delete(oldSocketId);
+          oldSocket.disconnect(true);
+        }
+      }
 
       // Mark player as connected in game state
       if (roomData.gameSession) {
@@ -70,6 +82,7 @@ export function setupSocketHandlers(
         ok: true,
         roomCode: roomData.room.roomCode,
         playerId: playerSession.playerId,
+        roomStatus: roomData.room.status as 'waiting' | 'in_progress',
       });
 
       // Send current state
@@ -206,6 +219,7 @@ export function setupSocketHandlers(
 
       const { roomData, playerSession } = session;
       const result = roomData.gameSession!.handleAction(playerSession.playerId, action);
+      roomManager.updateActivity(roomData.room.roomCode);
       cb(result);
     });
 
@@ -238,11 +252,17 @@ export function setupSocketHandlers(
 
         // Start disconnect timer — convert to bot after 5 minutes
         playerSession.disconnectTimer = setTimeout(() => {
+          const roomCode = roomData.room.roomCode;
           const converted = roomManager.convertToBot(sessionToken);
           if (converted && roomData.gameSession) {
             // Bot should now take over this player's turns
             roomData.gameSession.scheduleBotTick();
             broadcastState(io, roomData, roomData.gameSession);
+
+            // If no humans left, destroy the room
+            if (roomManager.hasNoHumans(roomCode)) {
+              roomManager.destroyRoom(roomCode);
+            }
           }
         }, 5 * 60 * 1000);
 

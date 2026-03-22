@@ -71,6 +71,8 @@ export function GameView({
   const [showDomesticTrade, setShowDomesticTrade] = useState(false);
   const [tradeResult, setTradeResult] = useState<{ accepted: boolean; acceptedByName?: string } | null>(null);
   const [lastDistribution, setLastDistribution] = useState<Record<string, any> | null>(null);
+  const [showReconnectLink, setShowReconnectLink] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const lastEventCountRef = useRef(0);
 
   // Watch for resource distribution events (for animation)
@@ -321,7 +323,7 @@ export function GameView({
           />
         )}
         {isOnline && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
             <div style={{
               width: '8px', height: '8px', borderRadius: '50%',
               background: connectionStatus === 'connected' ? '#27ae60' : '#e74c3c',
@@ -329,6 +331,55 @@ export function GameView({
             <span style={{ fontSize: '0.75em', color: '#888' }}>
               {connectionStatus === 'connected' ? 'Connected' : connectionStatus}
             </span>
+            <button
+              onClick={() => setShowReconnectLink(!showReconnectLink)}
+              title="Reconnect link (play on another device)"
+              style={{
+                background: 'none', border: '1px solid #555', borderRadius: '4px',
+                color: '#aaa', cursor: 'pointer', fontSize: '0.75em', padding: '2px 6px',
+              }}
+            >
+              Link
+            </button>
+            {showReconnectLink && (() => {
+              const token = localStorage.getItem('catan_session_token');
+              const url = `${window.location.origin}/rejoin?token=${token}`;
+              return (
+                <div style={{
+                  position: 'absolute', top: '100%', right: 0, marginTop: '8px',
+                  background: '#1a1a2e', border: '1px solid #444', borderRadius: '8px',
+                  padding: '12px', zIndex: 60, minWidth: '280px',
+                }}>
+                  <p style={{ fontSize: '0.8em', color: '#aaa', marginBottom: '8px' }}>
+                    Open this link on another device to continue playing:
+                  </p>
+                  <input
+                    readOnly
+                    value={url}
+                    style={{
+                      width: '100%', padding: '6px 8px', borderRadius: '4px',
+                      border: '1px solid #555', background: '#0e0e1a', color: '#fff',
+                      fontSize: '0.75em', marginBottom: '6px',
+                    }}
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(url);
+                      setLinkCopied(true);
+                      setTimeout(() => setLinkCopied(false), 2000);
+                    }}
+                    style={{
+                      width: '100%', padding: '6px', borderRadius: '4px',
+                      border: 'none', background: linkCopied ? '#27ae60' : '#3498db',
+                      color: '#fff', cursor: 'pointer', fontSize: '0.8em',
+                    }}
+                  >
+                    {linkCopied ? 'Copied!' : 'Copy Link'}
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>

@@ -22,11 +22,13 @@ class SocketManager {
     gameState: Array<(state: GameState) => void>;
     playerStatus: Array<(playerId: string, connected: boolean) => void>;
     connectionChange: Array<(status: ConnectionStatus) => void>;
+    sessionTakenOver: Array<() => void>;
   } = {
     lobbyUpdate: [],
     gameState: [],
     playerStatus: [],
     connectionChange: [],
+    sessionTakenOver: [],
   };
 
   connect(serverUrl?: string): void {
@@ -51,13 +53,13 @@ class SocketManager {
     this.socket.on('connect', () => {
       this.notifyConnection('connected');
 
-      // Auto-rejoin if we have a session token
-      const token = sessionStorage.getItem('catan_session_token');
+      // Auto-rejoin if we have a session token (for Socket.IO reconnects)
+      const token = localStorage.getItem('catan_session_token');
       if (token) {
         this.socket!.emit('lobby:rejoin', { sessionToken: token }, (res) => {
           if (res.ok) {
-            sessionStorage.setItem('catan_room_code', res.roomCode || '');
-            sessionStorage.setItem('catan_player_id', res.playerId || '');
+            localStorage.setItem('catan_room_code', res.roomCode || '');
+            localStorage.setItem('catan_player_id', res.playerId || '');
           }
         });
       }
@@ -85,6 +87,69 @@ class SocketManager {
     this.socket.on('game:playerStatus', (playerId, connected) => {
       this.listeners.playerStatus.forEach((cb) => cb(playerId, connected));
     });
+
+    this.socket.on('session:takenOver', () => {
+      this.clearSession();
+      this.listeners.sessionTakenOver.forEach((cb) => cb());
+      this.listeners.connectionChange.forEach((cb) => cb('disconnected'));
+    });
+  }
+
+  /**
+   * Attempt to reconnect using a saved session token.
+   * Used on app load to restore a previous game/lobby session.
+   */
+  async attemptReconnect(token?: string): Promise<{
+    ok: true; roomCode: string; playerId: string; roomStatus: string;
+  } | { ok: false }> {
+    const sessionToken = token || localStorage.getItem('catan_session_token');
+    if (!sessionToken) return { ok: false };
+
+    this.connect();
+
+    // Wait for socket to connect
+    await new Promise<void>((resolve) => {
+      if (this.socket?.connected) {
+        resolve();
+        return;
+      }
+      const onConnect = () => {
+        this.socket?.off('connect', onConnect);
+        resolve();
+      };
+      this.socket?.on('connect', onConnect);
+      // Timeout after 5s
+      setTimeout(resolve, 5000);
+    });
+
+    if (!this.socket?.connected) {
+      this.clearSession();
+      return { ok: false };
+    }
+
+    return new Promise((resolve) => {
+      this.socket!.emit('lobby:rejoin', { sessionToken }, (res) => {
+        if (res.ok) {
+          localStorage.setItem('catan_session_token', sessionToken);
+          localStorage.setItem('catan_room_code', res.roomCode || '');
+          localStorage.setItem('catan_player_id', res.playerId || '');
+          resolve({
+            ok: true,
+            roomCode: res.roomCode!,
+            playerId: res.playerId!,
+            roomStatus: res.roomStatus || 'waiting',
+          });
+        } else {
+          this.clearSession();
+          resolve({ ok: false });
+        }
+      });
+
+      setTimeout(() => {
+        this.clearSession();
+        resolve({ ok: false });
+      }, 5000);
+    });
   }
 
   async createRoom(
@@ -94,9 +159,9 @@ class SocketManager {
     this.ensureConnected();
     return new Promise((resolve, reject) => {
       this.socket!.emit('lobby:create', { playerName, config }, (res) => {
-        sessionStorage.setItem('catan_session_token', res.sessionToken);
-        sessionStorage.setItem('catan_room_code', res.roomCode);
-        sessionStorage.setItem('catan_player_id', res.playerId);
+        localStorage.setItem('catan_session_token', res.sessionToken);
+        localStorage.setItem('catan_room_code', res.roomCode);
+        localStorage.setItem('catan_player_id', res.playerId);
         resolve(res);
       });
 
@@ -115,9 +180,9 @@ class SocketManager {
           reject(new Error(res.error || 'Failed to join'));
           return;
         }
-        sessionStorage.setItem('catan_session_token', res.sessionToken!);
-        sessionStorage.setItem('catan_room_code', roomCode.toUpperCase());
-        sessionStorage.setItem('catan_player_id', res.playerId!);
+        localStorage.setItem('catan_session_token', res.sessionToken!);
+        localStorage.setItem('catan_room_code', roomCode.toUpperCase());
+        localStorage.setItem('catan_player_id', res.playerId!);
         resolve({ sessionToken: res.sessionToken!, playerId: res.playerId! });
       });
 
@@ -157,15 +222,12 @@ class SocketManager {
     this.socket?.emit('lobby:leave');
     this.lastLobbyRoom = null;
     this.lastGameState = null;
-    sessionStorage.removeItem('catan_session_token');
-    sessionStorage.removeItem('catan_room_code');
-    sessionStorage.removeItem('catan_player_id');
+    this.clearSession();
   }
 
   // Event subscriptions
   onLobbyUpdate(cb: (room: LobbyRoom) => void): () => void {
     this.listeners.lobbyUpdate.push(cb);
-    // Immediately emit cached value so late subscribers get current state
     if (this.lastLobbyRoom) {
       cb(this.lastLobbyRoom);
     }
@@ -176,7 +238,6 @@ class SocketManager {
 
   onGameState(cb: (state: GameState) => void): () => void {
     this.listeners.gameState.push(cb);
-    // Immediately emit cached value so late subscribers get current state
     if (this.lastGameState) {
       cb(this.lastGameState);
     }
@@ -199,10 +260,17 @@ class SocketManager {
     };
   }
 
+  onSessionTakenOver(cb: () => void): () => void {
+    this.listeners.sessionTakenOver.push(cb);
+    return () => {
+      this.listeners.sessionTakenOver = this.listeners.sessionTakenOver.filter((l) => l !== cb);
+    };
+  }
+
   disconnect(): void {
     this.socket?.disconnect();
     this.socket = null;
-    this.listeners = { lobbyUpdate: [], gameState: [], playerStatus: [], connectionChange: [] };
+    this.listeners = { lobbyUpdate: [], gameState: [], playerStatus: [], connectionChange: [], sessionTakenOver: [] };
   }
 
   isConnected(): boolean {
@@ -217,6 +285,12 @@ class SocketManager {
 
   private notifyConnection(status: ConnectionStatus): void {
     this.listeners.connectionChange.forEach((cb) => cb(status));
+  }
+
+  private clearSession(): void {
+    localStorage.removeItem('catan_session_token');
+    localStorage.removeItem('catan_room_code');
+    localStorage.removeItem('catan_player_id');
   }
 }
 

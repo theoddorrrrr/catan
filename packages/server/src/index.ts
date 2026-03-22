@@ -42,6 +42,7 @@ if (!isDev) {
 
 // Set up game logic
 const roomManager = new RoomManager();
+roomManager.startCleanupInterval();
 setupSocketHandlers(io, roomManager);
 
 httpServer.listen(PORT, () => {

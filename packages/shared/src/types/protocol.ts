@@ -36,7 +36,7 @@ export interface ClientToServerEvents {
 
   'lobby:rejoin': (
     opts: { sessionToken: string },
-    cb: (res: { ok: boolean; error?: string; roomCode?: string; playerId?: string }) => void
+    cb: (res: { ok: boolean; error?: string; roomCode?: string; playerId?: string; roomStatus?: 'waiting' | 'in_progress' }) => void
   ) => void;
 
   'lobby:setReady': (ready: boolean) => void;
@@ -55,4 +55,5 @@ export interface ServerToClientEvents {
   'lobby:update': (room: LobbyRoom) => void;
   'game:state': (state: GameState) => void;
   'game:playerStatus': (playerId: string, connected: boolean) => void;
+  'session:takenOver': () => void;
 }

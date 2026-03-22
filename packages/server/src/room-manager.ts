@@ -18,6 +18,8 @@ export interface RoomData {
   room: LobbyRoom;
   gameSession: GameSession | null;
   playerSessions: Map<string, PlayerSession>; // sessionToken -> PlayerSession
+  createdAt: number;
+  lastActivityAt: number;
 }
 
 export class RoomManager {
@@ -58,10 +60,13 @@ export class RoomManager {
       roomCode,
     };
 
+    const now = Date.now();
     const roomData: RoomData = {
       room,
       gameSession: null,
       playerSessions: new Map([[sessionToken, playerSession]]),
+      createdAt: now,
+      lastActivityAt: now,
     };
 
     this.rooms.set(roomCode, roomData);
@@ -100,6 +105,7 @@ export class RoomManager {
 
     roomData.playerSessions.set(sessionToken, playerSession);
     this.sessionIndex.set(sessionToken, roomData);
+    roomData.lastActivityAt = Date.now();
 
     return { ok: true, sessionToken, playerId };
   }
@@ -122,6 +128,7 @@ export class RoomManager {
       playerSession.disconnectTimer = undefined;
     }
 
+    roomData.lastActivityAt = Date.now();
     return { ok: true, roomData, playerSession };
   }
 
@@ -244,6 +251,7 @@ export class RoomManager {
     if (!roomData) return null;
 
     roomData.room.status = 'in_progress';
+    roomData.lastActivityAt = Date.now();
     const gameSession = new GameSession(roomData.room);
     roomData.gameSession = gameSession;
 
@@ -305,5 +313,57 @@ export class RoomManager {
     this.sessionIndex.delete(sessionToken);
 
     return roomData.room.roomCode;
+  }
+
+  hasNoHumans(roomCode: string): boolean {
+    const roomData = this.rooms.get(roomCode);
+    if (!roomData) return true;
+    return roomData.playerSessions.size === 0;
+  }
+
+  destroyRoom(roomCode: string): void {
+    const roomData = this.rooms.get(roomCode);
+    if (!roomData) return;
+
+    for (const [token, ps] of roomData.playerSessions) {
+      if (ps.disconnectTimer) clearTimeout(ps.disconnectTimer);
+      this.sessionIndex.delete(token);
+    }
+
+    if (roomData.gameSession) {
+      roomData.gameSession.destroy();
+    }
+
+    this.rooms.delete(roomCode);
+    console.log(`Room ${roomCode} destroyed (cleanup)`);
+  }
+
+  updateActivity(roomCode: string): void {
+    const roomData = this.rooms.get(roomCode);
+    if (roomData) {
+      roomData.lastActivityAt = Date.now();
+    }
+  }
+
+  startCleanupInterval(): void {
+    setInterval(() => {
+      const now = Date.now();
+      const TWO_HOURS = 2 * 60 * 60 * 1000;
+      const THIRTY_MINUTES = 30 * 60 * 1000;
+
+      for (const [roomCode, roomData] of this.rooms) {
+        if (now - roomData.createdAt > TWO_HOURS) {
+          this.destroyRoom(roomCode);
+          continue;
+        }
+        if (roomData.room.status === 'waiting' && now - roomData.lastActivityAt > THIRTY_MINUTES) {
+          this.destroyRoom(roomCode);
+          continue;
+        }
+        if (this.hasNoHumans(roomCode)) {
+          this.destroyRoom(roomCode);
+        }
+      }
+    }, 5 * 60 * 1000);
   }
 }
