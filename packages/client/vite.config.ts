@@ -7,5 +7,14 @@ export default defineConfig({
   root: path.resolve(__dirname),
   server: {
     port: 3000,
+    proxy: {
+      '/socket.io': {
+        target: 'http://localhost:4000',
+        ws: true,
+      },
+      '/api': {
+        target: 'http://localhost:4000',
+      },
+    },
   },
 });

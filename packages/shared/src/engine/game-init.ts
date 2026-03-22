@@ -1,6 +1,6 @@
 import { GameState, GamePhase, TurnPhase, GameConfig, DEFAULT_CONFIG } from '../types/game.js';
 import { Player, createPlayer, PlayerColor, ALL_PLAYER_COLORS } from '../types/player.js';
-import { DevCardType, DEV_CARD_COUNTS } from '../types/resource.js';
+import { DevCardType, DEV_CARD_COUNTS, ResourceType, emptyResources } from '../types/resource.js';
 import { generateBoard, findDesertHex } from '../board/board-generator.js';
 import { BoardGraph, buildBoardGraph, generateHexCoords } from '../board/hex-grid.js';
 import { SeededRandom } from '../utils/random.js';
@@ -75,6 +75,16 @@ export function createGame(
     largestArmySize: 0,
 
     winnerId: null,
+
+    bank: {
+      [ResourceType.Brick]: 19,
+      [ResourceType.Lumber]: 19,
+      [ResourceType.Ore]: 19,
+      [ResourceType.Grain]: 19,
+      [ResourceType.Wool]: 19,
+    },
+    diceRollHistory: [],
+    gameStartTimestamp: Date.now(),
 
     eventLog: [],
     actionIndex: 0,

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { TimestampedEvent, GameEvent, ResourceType, ResourceBundle } from '@catan/shared';
 
 interface GameLogProps {
@@ -42,7 +42,7 @@ function eventToText(event: GameEvent, names: Record<string, string>): string | 
     case 'yearOfPlentyPlayed': return `${name(event.playerId)} played Year of Plenty: ${event.resources.join(', ')}`;
     case 'longestRoadChanged': return event.playerId ? `${name(event.playerId)} now has Longest Road (${event.length})` : null;
     case 'largestArmyChanged': return event.playerId ? `${name(event.playerId)} now has Largest Army (${event.size})` : null;
-    case 'turnEnded': return null; // Don't show, turnStarted covers it
+    case 'turnEnded': return null;
     case 'gameWon': return `${name(event.winnerId)} WINS!`;
     case 'initialResourcesGranted': return `${name(event.playerId)} received starting resources: ${formatResources(event.resources)}`;
     default: return null;
@@ -51,6 +51,7 @@ function eventToText(event: GameEvent, names: Record<string, string>): string | 
 
 export function GameLog({ events, playerNames }: GameLogProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -62,27 +63,56 @@ export function GameLog({ events, playerNames }: GameLogProps) {
     .map((te, i) => ({ text: eventToText(te.event, playerNames), key: i }))
     .filter((m) => m.text !== null);
 
-  // Show only last 50 messages
   const visible = messages.slice(-50);
 
   return (
-    <div
-      ref={scrollRef}
-      style={{
-        height: '200px',
-        overflowY: 'auto',
-        padding: '8px',
-        fontSize: '0.8em',
-        fontFamily: 'monospace',
-        background: 'rgba(0,0,0,0.3)',
-        borderRadius: '8px',
-      }}
-    >
-      {visible.map((m) => (
-        <div key={m.key} style={{ padding: '2px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-          {m.text}
+    <div style={{
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      width: '320px',
+      maxWidth: '50vw',
+      zIndex: 10,
+      pointerEvents: 'auto',
+    }}>
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        style={{
+          display: 'block',
+          width: '100%',
+          background: 'rgba(0,0,0,0.7)',
+          color: '#aaa',
+          border: 'none',
+          borderTopRightRadius: '8px',
+          padding: '4px 8px',
+          fontSize: '0.75em',
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        {collapsed ? '▶ Log' : '▼ Log'} ({messages.length})
+      </button>
+      {!collapsed && (
+        <div
+          ref={scrollRef}
+          style={{
+            maxHeight: '180px',
+            overflowY: 'auto',
+            padding: '6px 8px',
+            fontSize: '0.75em',
+            fontFamily: 'monospace',
+            background: 'rgba(0,0,0,0.7)',
+            backdropFilter: 'blur(4px)',
+            borderTopRightRadius: '0',
+          }}
+        >
+          {visible.map((m) => (
+            <div key={m.key} style={{ padding: '1px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              {m.text}
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }

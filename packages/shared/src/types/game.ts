@@ -80,6 +80,10 @@ export interface GameState {
 
   winnerId: string | null;
 
+  bank: ResourceBundle;
+  diceRollHistory: Array<{ roll: number; playerId: string }>;
+  gameStartTimestamp: number;
+
   eventLog: TimestampedEvent[];
   actionIndex: number;
 }

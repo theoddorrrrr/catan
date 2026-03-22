@@ -334,6 +334,7 @@ export function handlePlayAction(
       const d2 = rng.nextInt(1, 6);
       const total = d1 + d2;
       newState.lastDiceRoll = [d1, d2];
+      newState.diceRollHistory.push({ roll: total, playerId });
       events.push({ type: 'diceRolled', values: [d1, d2], total });
 
       if (total === 7 && newState.config.robberEnabled) {
@@ -364,6 +365,7 @@ export function handlePlayAction(
         newState.players[playerIdx].resources,
         action.resources
       );
+      newState.bank = addResources(newState.bank, action.resources);
       newState.playersNeedingDiscard = newState.playersNeedingDiscard.filter((id) => id !== playerId);
       events.push({ type: 'resourcesDiscarded', playerId, resources: action.resources });
 
@@ -422,6 +424,7 @@ export function handlePlayAction(
         newState.players[playerIdx].resources,
         BUILDING_COSTS.settlement
       );
+      newState.bank = addResources(newState.bank, BUILDING_COSTS.settlement);
       newState.players[playerIdx].settlements.push(action.vertexId);
       newState.players[playerIdx].remainingSettlements--;
       events.push({ type: 'settlementBuilt', playerId, vertexId: action.vertexId });
@@ -436,6 +439,7 @@ export function handlePlayAction(
         newState.players[playerIdx].resources,
         BUILDING_COSTS.city
       );
+      newState.bank = addResources(newState.bank, BUILDING_COSTS.city);
       newState.players[playerIdx].settlements = newState.players[playerIdx].settlements.filter(
         (v) => v !== action.vertexId
       );
@@ -453,6 +457,7 @@ export function handlePlayAction(
         newState.players[playerIdx].resources,
         BUILDING_COSTS.road
       );
+      newState.bank = addResources(newState.bank, BUILDING_COSTS.road);
       newState.players[playerIdx].roads.push(action.edgeId);
       newState.players[playerIdx].remainingRoads--;
       events.push({ type: 'roadBuilt', playerId, edgeId: action.edgeId });
@@ -467,6 +472,7 @@ export function handlePlayAction(
         newState.players[playerIdx].resources,
         BUILDING_COSTS.devCard
       );
+      newState.bank = addResources(newState.bank, BUILDING_COSTS.devCard);
       const cardType = newState.devCardDeck.pop()!;
       newState.players[playerIdx].devCards.push({
         type: cardType,
@@ -547,6 +553,8 @@ export function handlePlayAction(
       newState.players[playerIdx].devCardPlayedThisTurn = true;
       newState.players[playerIdx].resources[action.resources[0]]++;
       newState.players[playerIdx].resources[action.resources[1]]++;
+      newState.bank[action.resources[0]]--;
+      newState.bank[action.resources[1]]--;
       events.push({ type: 'yearOfPlentyPlayed', playerId, resources: action.resources });
       break;
     }
@@ -580,6 +588,8 @@ export function handlePlayAction(
         newState.players[playerIdx].resources,
         action.receiving
       );
+      newState.bank = addResources(newState.bank, action.giving);
+      newState.bank = subtractResources(newState.bank, action.receiving);
       events.push({ type: 'bankTradeCompleted', playerId, gave: action.giving, received: action.receiving });
       break;
     }
@@ -683,9 +693,12 @@ function distributeResources(
 
     const playersOnHex = getPlayersOnHex(state, graph, hex.coord);
     for (const { playerId, isCity } of playersOnHex) {
-      const amount = isCity ? 2 : 1;
+      const wanted = isCity ? 2 : 1;
+      const amount = Math.min(wanted, state.bank[resource]);
+      if (amount <= 0) continue;
       const playerIdx = state.players.findIndex((p) => p.id === playerId);
       state.players[playerIdx].resources[resource] += amount;
+      state.bank[resource] -= amount;
 
       if (!distributions[playerId]) distributions[playerId] = emptyResources();
       distributions[playerId][resource] += amount;

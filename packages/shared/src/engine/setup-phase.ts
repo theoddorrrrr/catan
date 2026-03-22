@@ -86,7 +86,10 @@ export function handleSetupAction(
       const resources = getInitialResources(action.vertexId, newState, graph);
       const player = newState.players[playerIdx];
       for (const [res, amount] of Object.entries(resources)) {
-        player.resources[res as ResourceType] += amount;
+        const r = res as ResourceType;
+        const capped = Math.min(amount, newState.bank[r]);
+        player.resources[r] += capped;
+        newState.bank[r] -= capped;
       }
       if (Object.values(resources).some((v) => v > 0)) {
         events.push({ type: 'initialResourcesGranted', playerId, resources });

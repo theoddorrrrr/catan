@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: catan
+    runtime: node
+    buildCommand: npm install -g pnpm && pnpm install && pnpm run build:deploy
+    startCommand: cd packages/server && node dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production

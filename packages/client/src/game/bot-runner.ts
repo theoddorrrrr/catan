@@ -5,6 +5,8 @@ import {
   GameEngine,
   SimpleBot,
   ActionEnvelope,
+  hasResources,
+  totalResources,
 } from '@catan/shared';
 import { BoardGraph } from '@catan/shared';
 
@@ -49,6 +51,42 @@ export function runBotAction(
     const action = bot.chooseAction(state, discardPlayerId, graph);
     const envelope: ActionEnvelope = { action, playerId: discardPlayerId, timestamp: Date.now() };
     const result = engine.applyAction(newState, envelope);
+    return { newState: result.newState, finished: false };
+  }
+
+  // Handle active trade offers: bots evaluate and accept/reject
+  if (state.activeTradeOffer && state.activeTradeOffer.status === 'open') {
+    const offer = state.activeTradeOffer;
+    // Find bot players who haven't been the proposer
+    const botPlayers = state.players.filter(
+      (p) => p.isBot && p.id !== offer.fromPlayerId
+    );
+
+    for (const botPlayer of botPlayers) {
+      // Bot accepts if it has the requested resources and the trade seems fair
+      if (hasResources(botPlayer.resources, offer.requesting)) {
+        // Simple heuristic: accept if total given <= total received + 1
+        const offerTotal = totalResources(offer.offering);
+        const requestTotal = totalResources(offer.requesting);
+        if (offerTotal >= requestTotal - 1) {
+          const envelope: ActionEnvelope = {
+            action: { type: 'acceptTrade', tradeId: offer.id },
+            playerId: botPlayer.id,
+            timestamp: Date.now(),
+          };
+          const result = engine.applyAction(state, envelope);
+          return { newState: result.newState, finished: false };
+        }
+      }
+    }
+
+    // No bot accepted — cancel the trade (proposer cancels)
+    const cancelEnvelope: ActionEnvelope = {
+      action: { type: 'cancelTrade', tradeId: offer.id },
+      playerId: offer.fromPlayerId,
+      timestamp: Date.now(),
+    };
+    const result = engine.applyAction(state, cancelEnvelope);
     return { newState: result.newState, finished: false };
   }
 
