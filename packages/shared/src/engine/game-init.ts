@@ -54,13 +54,7 @@ export function createGame(
     : findDesertHex(board.hexes);
   const pirateHex = isSeafarers ? findSeafarersPirateHex(board.hexes) : null;
 
-  // Seafarers scenarios may override VP target
-  if (isSeafarers) {
-    const scenarioDef = SEAFARERS_SCENARIOS[fullConfig.seafarersScenario!];
-    if (scenarioDef?.victoryPointsToWin) {
-      fullConfig.victoryPointsToWin = scenarioDef.victoryPointsToWin;
-    }
-  }
+  // VP target comes from lobby config (which defaults to scenario VP when scenario is selected)
 
   const state: GameState = {
     gameId,

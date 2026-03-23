@@ -8,7 +8,7 @@ export const TERRAIN_COLORS: Record<Terrain, string> = {
   [Terrain.Pasture]: '#5db84a',
   [Terrain.Desert]: '#d6c894',
   [Terrain.Sea]: '#1a5fa0',
-  [Terrain.Gold]: '#c9a820',
+  [Terrain.Gold]: '#2a8a6a',
 };
 
 export const TERRAIN_COLORS_LIGHT: Record<Terrain, string> = {
@@ -19,7 +19,7 @@ export const TERRAIN_COLORS_LIGHT: Record<Terrain, string> = {
   [Terrain.Pasture]: '#7ed464',
   [Terrain.Desert]: '#ece0b4',
   [Terrain.Sea]: '#2a7fc0',
-  [Terrain.Gold]: '#e8c830',
+  [Terrain.Gold]: '#4ac8a0',
 };
 
 export const TERRAIN_LABELS: Record<Terrain, string> = {
@@ -42,7 +42,7 @@ export const TERRAIN_ICONS: Record<Terrain, string> = {
   [Terrain.Pasture]: 'M-3,0 C-3,-3 3,-3 3,0 C3,2 -3,2 -3,0',  // cloud/wool
   [Terrain.Desert]: 'M-5,2 Q-2,-2 0,2 Q2,-1 5,2',  // sand dune
   [Terrain.Sea]: 'M-5,0 Q-3,-2 -1,0 Q1,2 3,0 Q5,-2 7,0',  // wave
-  [Terrain.Gold]: 'M0,-4 L1.5,-1.5 L4.5,-1.5 L2,0.5 L3,3.5 L0,1.5 L-3,3.5 L-2,0.5 L-4.5,-1.5 L-1.5,-1.5 Z',  // star
+  [Terrain.Gold]: 'M-2,-5 L-2,-1 Q-2,1 -4,3 M0,-5 L0,0 Q0,2 -1,4 M2,-5 L2,-1 Q2,1 4,3',  // waterfall
 };
 
 export const HARBOR_RESOURCE: Record<HarborType, ResourceType | null> = {

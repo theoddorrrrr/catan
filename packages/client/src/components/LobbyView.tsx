@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LobbyRoom, ALL_PLAYER_COLORS, SeafarersScenario, getScenarioNames } from '@catan/shared';
+import { LobbyRoom, ALL_PLAYER_COLORS, SeafarersScenario, getScenarioNames, SEAFARERS_SCENARIOS } from '@catan/shared';
 import { socketManager, ConnectionStatus } from '../network/socket-manager';
 import { PLAYER_COLORS } from '../renderer/colors';
 
@@ -62,12 +62,20 @@ export function LobbyView({ roomCode, playerId, onGameStart, onLeave }: LobbyVie
     if (!room || !isHost) return;
     const enabled = !room.config.seafarersEnabled;
     const scenario = enabled ? getScenarioNames()[0].id : null;
-    socketManager.setConfig({ seafarersEnabled: enabled, seafarersScenario: scenario });
+    const vp = enabled && scenario ? SEAFARERS_SCENARIOS[scenario].victoryPointsToWin : 10;
+    socketManager.setConfig({ seafarersEnabled: enabled, seafarersScenario: scenario, victoryPointsToWin: vp });
   }
 
   function setScenario(scenario: string) {
     if (!room || !isHost) return;
-    socketManager.setConfig({ seafarersScenario: scenario as SeafarersScenario });
+    const scenarioId = scenario as SeafarersScenario;
+    const vp = SEAFARERS_SCENARIOS[scenarioId]?.victoryPointsToWin ?? 10;
+    socketManager.setConfig({ seafarersScenario: scenarioId, victoryPointsToWin: vp });
+  }
+
+  function setVictoryPoints(vp: number) {
+    if (!room || !isHost) return;
+    socketManager.setConfig({ victoryPointsToWin: vp });
   }
 
   function toggleSlot(index: number) {
@@ -230,7 +238,7 @@ export function LobbyView({ roomCode, playerId, onGameStart, onLeave }: LobbyVie
           ))}
         </div>
 
-        {/* Expansion settings (host only) */}
+        {/* Game settings (host only) */}
         {isHost && room && (
           <div style={{
             borderTop: '1px solid #333',
@@ -238,6 +246,34 @@ export function LobbyView({ roomCode, playerId, onGameStart, onLeave }: LobbyVie
             marginBottom: '12px',
           }}>
             <div style={{ fontSize: '0.8em', color: '#888', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              Settings
+            </div>
+
+            {/* Victory Points */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <span style={{ fontSize: '0.85em', color: '#ccc' }}>Victory Points:</span>
+              <input
+                type="number"
+                min={5}
+                max={20}
+                value={room.config.victoryPointsToWin ?? 10}
+                onChange={(e) => setVictoryPoints(Math.max(5, Math.min(20, parseInt(e.target.value) || 10)))}
+                style={{
+                  width: '52px',
+                  padding: '4px 6px',
+                  borderRadius: '4px',
+                  border: '1px solid #444',
+                  background: '#0e0e1a',
+                  color: '#f1c40f',
+                  fontSize: '0.9em',
+                  fontWeight: 'bold',
+                  textAlign: 'center',
+                }}
+              />
+            </div>
+
+            {/* Expansion */}
+            <div style={{ fontSize: '0.8em', color: '#888', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1px' }}>
               Expansion
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
@@ -278,19 +314,27 @@ export function LobbyView({ roomCode, playerId, onGameStart, onLeave }: LobbyVie
           </div>
         )}
 
-        {/* Show expansion info for non-host */}
-        {!isHost && room?.config.seafarersEnabled && (
+        {/* Show game info for non-host */}
+        {!isHost && room && (
           <div style={{
             borderTop: '1px solid #333',
             paddingTop: '12px',
             marginBottom: '12px',
             fontSize: '0.85em',
-            color: '#3498db',
+            color: '#ccc',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
           }}>
-            Seafarers expansion enabled
-            {room.config.seafarersScenario && (
-              <span style={{ color: '#888' }}>
-                {' — '}{getScenarioNames().find((s) => s.id === room.config.seafarersScenario)?.name || room.config.seafarersScenario}
+            <span>Victory Points to win: <strong style={{ color: '#f1c40f' }}>{room.config.victoryPointsToWin ?? 10}</strong></span>
+            {room.config.seafarersEnabled && (
+              <span style={{ color: '#3498db' }}>
+                Seafarers expansion enabled
+                {room.config.seafarersScenario && (
+                  <span style={{ color: '#888' }}>
+                    {' — '}{getScenarioNames().find((s) => s.id === room.config.seafarersScenario)?.name || room.config.seafarersScenario}
+                  </span>
+                )}
               </span>
             )}
           </div>
