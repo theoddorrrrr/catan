@@ -3,15 +3,10 @@ import {
   GameState,
   GamePhase,
   TurnPhase,
-  hasResources,
-  BUILDING_COSTS,
   totalResources,
-  ResourceType,
-  HexCoord,
   EdgeId,
 } from '@catan/shared';
 import { BuildMenu } from './BuildMenu';
-import { DevCardHand } from './DevCardHand';
 
 export type InteractionMode =
   | { type: 'none' }
@@ -35,10 +30,6 @@ interface ActionBarProps {
   onBuyDevCard: () => void;
   onBankTrade: () => void;
   onDomesticTrade: () => void;
-  onPlayKnight: () => void;
-  onPlayMonopoly: (resource: ResourceType) => void;
-  onPlayYearOfPlenty: (r1: ResourceType, r2: ResourceType) => void;
-  onPlayRoadBuilding: () => void;
 }
 
 export function ActionBar({
@@ -51,17 +42,12 @@ export function ActionBar({
   onBuyDevCard,
   onBankTrade,
   onDomesticTrade,
-  onPlayKnight,
-  onPlayMonopoly,
-  onPlayYearOfPlenty,
-  onPlayRoadBuilding,
 }: ActionBarProps) {
   const player = state.players.find((p) => p.id === humanPlayerId);
   if (!player) return null;
 
   const isMyTurn = state.players[state.currentPlayerIndex]?.id === humanPlayerId;
   const isSetup = state.phase === GamePhase.SetupRound1 || state.phase === GamePhase.SetupRound2;
-  const isPlaying = state.phase === GamePhase.Playing;
   const isFinished = state.phase === GamePhase.Finished;
 
   // Setup phase
@@ -147,24 +133,9 @@ export function ActionBar({
   return (
     <div style={barStyle}>
       {canRoll && (
-        <>
-          <button onClick={onRollDice} style={btnStyle('#e67e22')}>
-            🎲 Roll
-          </button>
-          {/* Can play knight pre-roll */}
-          <div style={{ position: 'relative' }}>
-            <DevCardHand
-              player={player}
-              turnNumber={state.turnNumber}
-              turnPhase={state.turnPhase}
-              isMyTurn={isMyTurn}
-              onPlayKnight={onPlayKnight}
-              onPlayMonopoly={onPlayMonopoly}
-              onPlayYearOfPlenty={onPlayYearOfPlenty}
-              onPlayRoadBuilding={onPlayRoadBuilding}
-            />
-          </div>
-        </>
+        <button onClick={onRollDice} style={btnStyle('#e67e22')}>
+          🎲 Roll
+        </button>
       )}
 
       {canBuild && (
@@ -172,25 +143,12 @@ export function ActionBar({
           <BuildMenu
             player={player}
             canBuild={canBuild}
-            devCardDeckSize={state.devCardDeck.length}
+            devCardDeckSize={(state as any).devCardDeckSize ?? state.devCardDeck.length}
             devCardsEnabled={state.config.devCardsEnabled}
             activeMode={interactionMode.type}
             onSelectMode={(mode) => onSetMode({ type: mode } as InteractionMode)}
             onBuyDevCard={onBuyDevCard}
           />
-
-          <div style={{ position: 'relative' }}>
-            <DevCardHand
-              player={player}
-              turnNumber={state.turnNumber}
-              turnPhase={state.turnPhase}
-              isMyTurn={isMyTurn}
-              onPlayKnight={onPlayKnight}
-              onPlayMonopoly={onPlayMonopoly}
-              onPlayYearOfPlenty={onPlayYearOfPlenty}
-              onPlayRoadBuilding={onPlayRoadBuilding}
-            />
-          </div>
 
           <button onClick={onBankTrade} style={btnStyle('#2980b9')}>
             🏦 Bank
@@ -222,17 +180,17 @@ export function ActionBar({
 const barStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '8px',
-  padding: '8px 12px',
+  gap: '6px',
+  padding: '6px 8px',
   background: '#1a1a2e',
   borderTop: '1px solid #333',
   flexWrap: 'wrap',
-  minHeight: '48px',
+  minHeight: '40px',
 };
 
 function btnStyle(bg: string, disabled = false): React.CSSProperties {
   return {
-    padding: '6px 14px',
+    padding: '5px 10px',
     borderRadius: '6px',
     border: 'none',
     background: disabled ? '#333' : bg,
@@ -240,6 +198,7 @@ function btnStyle(bg: string, disabled = false): React.CSSProperties {
     fontWeight: 'bold',
     cursor: disabled ? 'not-allowed' : 'pointer',
     opacity: disabled ? 0.5 : 1,
-    fontSize: '0.9em',
+    fontSize: '0.8em',
+    whiteSpace: 'nowrap',
   };
 }

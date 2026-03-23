@@ -26,11 +26,13 @@ import { GameLog } from './GameLog';
 import { DiceDisplay } from './DiceDisplay';
 import { GameControls } from './GameControls';
 import { ActionBar, InteractionMode } from './ActionBar';
+import { PlayerHand } from './PlayerHand';
 import { TradeDialog } from './TradeDialog';
 import { ResourceAnimation } from './ResourceAnimation';
 import { GameStats } from './GameStats';
 import { DiscardDialog } from './DiscardDialog';
 import { DomesticTradeDialog, TradeResultDialog } from './DomesticTradeDialog';
+import { HelpGuide } from './HelpGuide';
 import { useGameSource } from '../hooks/useGameSource';
 import { runBotAction } from '../game/bot-runner';
 
@@ -73,6 +75,7 @@ export function GameView({
   const [lastDistribution, setLastDistribution] = useState<Record<string, any> | null>(null);
   const [showReconnectLink, setShowReconnectLink] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const lastEventCountRef = useRef(0);
 
   // Watch for resource distribution events (for animation)
@@ -263,7 +266,7 @@ export function GameView({
     <div style={{
       display: 'grid',
       gridTemplateColumns: '1fr',
-      gridTemplateRows: 'auto auto 1fr auto',
+      gridTemplateRows: 'auto auto 1fr auto auto',
       height: '100vh',
       background: '#1a5fa0',
       color: '#eee',
@@ -288,28 +291,39 @@ export function GameView({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '4px 12px',
+        padding: '3px 8px',
         background: '#1a1a2e',
         borderBottom: '1px solid #333',
         flexWrap: 'wrap',
-        gap: '6px',
+        gap: '4px',
+        minHeight: '32px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.1em' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1em', padding: '2px' }}>
             &larr;
           </button>
-          <h1 style={{ margin: 0, fontSize: '1.1em' }}>Catan</h1>
+          <h1 style={{ margin: 0, fontSize: '1em' }}>Catan</h1>
+          <button
+            onClick={() => setShowHelp(true)}
+            title="Game Guide"
+            style={{
+              background: 'none', border: '1px solid #555', borderRadius: '50%',
+              color: '#aaa', cursor: 'pointer', fontSize: '0.7em', width: '20px', height: '20px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+            }}
+          >
+            ?
+          </button>
           {isOnline && roomCode && (
-            <span style={{ color: '#3498db', fontSize: '0.8em', fontFamily: 'monospace' }}>
+            <span style={{ color: '#3498db', fontSize: '0.7em', fontFamily: 'monospace' }}>
               [{roomCode}]
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <DiceDisplay dice={state.lastDiceRoll} />
-          <span style={{ fontSize: '0.8em', color: '#888' }}>
-            Turn {state.turnNumber} | {state.phase}
-            {state.phase === GamePhase.Playing && ` - ${state.turnPhase}`}
+          <span style={{ fontSize: '0.7em', color: '#888' }}>
+            T{state.turnNumber} | {state.phase === GamePhase.Playing ? state.turnPhase : state.phase}
           </span>
         </div>
         {!isOnline && (
@@ -422,6 +436,24 @@ export function GameView({
         )}
       </div>
 
+      {/* Player hand (resource + dev cards) */}
+      {humanPlayerId && (() => {
+        const handPlayer = state.players.find((p) => p.id === humanPlayerId);
+        const isMyTurn = state.players[state.currentPlayerIndex]?.id === humanPlayerId;
+        return handPlayer ? (
+          <PlayerHand
+            player={handPlayer}
+            turnNumber={state.turnNumber}
+            turnPhase={state.turnPhase}
+            isMyTurn={isMyTurn}
+            onPlayKnight={handlePlayKnight}
+            onPlayMonopoly={handlePlayMonopoly}
+            onPlayYearOfPlenty={handlePlayYearOfPlenty}
+            onPlayRoadBuilding={handlePlayRoadBuilding}
+          />
+        ) : null;
+      })()}
+
       {/* Action bar (human player only) */}
       {humanPlayerId && (
         <ActionBar
@@ -434,10 +466,6 @@ export function GameView({
           onBuyDevCard={() => doGameAction({ type: 'buyDevCard' })}
           onBankTrade={() => setShowTradeDialog(true)}
           onDomesticTrade={() => setShowDomesticTrade(true)}
-          onPlayKnight={handlePlayKnight}
-          onPlayMonopoly={handlePlayMonopoly}
-          onPlayYearOfPlenty={handlePlayYearOfPlenty}
-          onPlayRoadBuilding={handlePlayRoadBuilding}
         />
       )}
 
@@ -478,6 +506,8 @@ export function GameView({
           />
         );
       })()}
+
+      {showHelp && <HelpGuide onClose={() => setShowHelp(false)} />}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { socketManager } from '../network/socket-manager';
+import { HelpGuide } from './HelpGuide';
 
 interface StartScreenProps {
   onPractice: (mode: 'spectate' | 'play', playerName: string) => void;
@@ -12,6 +13,7 @@ export function StartScreen({ onPractice, onLobbyJoined }: StartScreenProps) {
   const [showJoin, setShowJoin] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   async function handleCreate() {
     if (loading) return;
@@ -54,6 +56,16 @@ export function StartScreen({ onPractice, onLobbyJoined }: StartScreenProps) {
     }}>
       <h1 style={{ fontSize: '3em', marginBottom: '8px', color: '#f1c40f' }}>Catan</h1>
       <p style={{ color: '#888', marginBottom: '32px' }}>Web Board Game</p>
+      <button
+        onClick={() => setShowHelp(true)}
+        style={{
+          background: 'none', border: '1px solid #555', borderRadius: '8px',
+          color: '#aaa', cursor: 'pointer', fontSize: '0.85em', padding: '6px 16px',
+          marginBottom: '16px',
+        }}
+      >
+        ? How to Play
+      </button>
 
       <div style={{
         background: '#1a1a2e',
@@ -148,6 +160,8 @@ export function StartScreen({ onPractice, onLobbyJoined }: StartScreenProps) {
           Spectate Bots
         </button>
       </div>
+
+      {showHelp && <HelpGuide onClose={() => setShowHelp(false)} />}
     </div>
   );
 }
