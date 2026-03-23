@@ -16,6 +16,7 @@ interface BuildMenuProps {
   canBuild: boolean;
   devCardDeckSize: number;
   devCardsEnabled: boolean;
+  seafarersEnabled?: boolean;
   activeMode: string;
   onSelectMode: (mode: string) => void;
   onBuyDevCard: () => void;
@@ -26,6 +27,7 @@ export function BuildMenu({
   canBuild,
   devCardDeckSize,
   devCardsEnabled,
+  seafarersEnabled,
   activeMode,
   onSelectMode,
   onBuyDevCard,
@@ -70,6 +72,14 @@ export function BuildMenu({
       enabled: hasResources(player.resources, BUILDING_COSTS.city) && player.remainingCities > 0 && player.settlements.length > 0,
       active: activeMode === 'buildCity',
     },
+    ...(seafarersEnabled ? [{
+      id: 'buildShip',
+      label: 'Ship',
+      icon: '⛵',
+      cost: BUILDING_COSTS.ship as Record<ResourceType, number>,
+      enabled: hasResources(player.resources, BUILDING_COSTS.ship) && player.remainingShips > 0,
+      active: activeMode === 'buildShip',
+    }] : []),
     {
       id: 'buyDevCard',
       label: 'Dev Card',

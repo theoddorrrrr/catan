@@ -13,6 +13,7 @@ import {
   DevCardType,
   TERRAIN_TO_RESOURCE,
   ALL_RESOURCES,
+  Terrain,
 } from '../types/resource.js';
 import { HexCoord, hexKey, VertexId, EdgeId } from '../types/board.js';
 import { BoardGraph } from '../board/hex-grid.js';
@@ -21,12 +22,18 @@ import {
   isVertexOccupied,
   isVertexDistanceLegal,
   isEdgeOccupied,
+  isEdgeOccupiedByAny,
   playerHasAdjacentRoadOrBuilding,
   playerCanPlaceRoadOnEdge,
+  playerCanPlaceShipOnEdge,
   getPlayersOnHex,
+  getPlayersWithShipsOnHex,
   getTradeRate,
   calculateLongestRoad,
   getVertexOwner,
+  isSeaEdge,
+  isShipOpen,
+  getShipOwner,
 } from './board-query.js';
 import { checkVictory, updateLongestRoad, updateLargestArmy } from './victory.js';
 
@@ -37,6 +44,15 @@ export function validatePlayAction(
 ): ValidationResult {
   const { action, playerId } = envelope;
   const currentPlayer = state.players[state.currentPlayerIndex];
+
+  // Gold choice can be done by any player who needs to choose
+  if (action.type === 'chooseGoldResource') {
+    const pending = state.playersNeedingGoldChoice.find(p => p.playerId === playerId);
+    if (!pending) {
+      return { valid: false, reason: 'You do not need to choose a gold resource' };
+    }
+    return { valid: true };
+  }
 
   // Discard can be done by any player who needs to discard
   if (action.type === 'discardResources') {
@@ -216,11 +232,15 @@ export function validatePlayAction(
       if (action.hex.q === state.robberHex.q && action.hex.r === state.robberHex.r) {
         return { valid: false, reason: 'Must move robber to a different hex' };
       }
-      const validHex = state.board.hexes.some(
+      const robberTargetHex = state.board.hexes.find(
         (h) => h.coord.q === action.hex.q && h.coord.r === action.hex.r && h.coord.s === action.hex.s
       );
-      if (!validHex) {
+      if (!robberTargetHex) {
         return { valid: false, reason: 'Invalid hex' };
+      }
+      // In Seafarers, robber cannot go on sea hexes (use movePirate for that)
+      if (robberTargetHex.terrain === Terrain.Sea) {
+        return { valid: false, reason: 'Cannot place robber on sea — use pirate instead' };
       }
       return { valid: true };
     }
@@ -306,6 +326,72 @@ export function validatePlayAction(
       return { valid: true };
     }
 
+    case 'buildShip': {
+      if (state.turnPhase !== TurnPhase.PostRoll) {
+        return { valid: false, reason: 'Can only build after rolling' };
+      }
+      if (!state.config.seafarersEnabled) {
+        return { valid: false, reason: 'Seafarers not enabled' };
+      }
+      if (!hasResources(currentPlayer.resources, BUILDING_COSTS.ship)) {
+        return { valid: false, reason: 'Not enough resources for ship' };
+      }
+      if (currentPlayer.remainingShips <= 0) {
+        return { valid: false, reason: 'No more ships available' };
+      }
+      if (isEdgeOccupiedByAny(state, action.edgeId)) {
+        return { valid: false, reason: 'Edge occupied' };
+      }
+      if (!playerCanPlaceShipOnEdge(state, graph, playerId, action.edgeId)) {
+        return { valid: false, reason: 'Ship must be on a sea edge and connect to your network' };
+      }
+      return { valid: true };
+    }
+
+    case 'moveShip': {
+      if (state.turnPhase !== TurnPhase.PostRoll) {
+        return { valid: false, reason: 'Can only move ships after rolling' };
+      }
+      if (!state.config.seafarersEnabled) {
+        return { valid: false, reason: 'Seafarers not enabled' };
+      }
+      if (!currentPlayer.ships.includes(action.fromEdgeId)) {
+        return { valid: false, reason: 'You do not own this ship' };
+      }
+      if (!isShipOpen(state, graph, playerId, action.fromEdgeId)) {
+        return { valid: false, reason: 'Ship is not open (both ends are connected)' };
+      }
+      if (isEdgeOccupiedByAny(state, action.toEdgeId)) {
+        return { valid: false, reason: 'Target edge is occupied' };
+      }
+      if (!isSeaEdge(state, graph, action.toEdgeId)) {
+        return { valid: false, reason: 'Ships can only be on sea edges' };
+      }
+      return { valid: true };
+    }
+
+    case 'movePirate': {
+      if (state.turnPhase !== TurnPhase.RobberMove) {
+        return { valid: false, reason: 'Cannot move pirate now' };
+      }
+      if (!state.config.seafarersEnabled) {
+        return { valid: false, reason: 'Seafarers not enabled' };
+      }
+      // Must be a sea hex
+      const pirateTargetHex = state.board.hexes.find(
+        h => h.coord.q === action.hex.q && h.coord.r === action.hex.r && h.coord.s === action.hex.s
+      );
+      if (!pirateTargetHex || pirateTargetHex.terrain !== Terrain.Sea) {
+        return { valid: false, reason: 'Pirate must be placed on a sea hex' };
+      }
+      // Must move to a different hex
+      if (state.pirateHex &&
+        action.hex.q === state.pirateHex.q && action.hex.r === state.pirateHex.r) {
+        return { valid: false, reason: 'Must move pirate to a different hex' };
+      }
+      return { valid: true };
+    }
+
     case 'endTurn': {
       if (state.turnPhase !== TurnPhase.PostRoll) {
         return { valid: false, reason: 'Cannot end turn now' };
@@ -354,7 +440,12 @@ export function handlePlayAction(
       } else {
         // Distribute resources
         distributeResources(newState, graph, total, events);
-        newState.turnPhase = TurnPhase.PostRoll;
+        // Check if gold choices are needed
+        if (newState.playersNeedingGoldChoice.length > 0) {
+          newState.turnPhase = TurnPhase.GoldChoice;
+        } else {
+          newState.turnPhase = TurnPhase.PostRoll;
+        }
       }
       break;
     }
@@ -649,6 +740,91 @@ export function handlePlayAction(
       break;
     }
 
+    case 'buildShip': {
+      const playerIdx = newState.players.findIndex((p) => p.id === playerId);
+      newState.players[playerIdx].resources = subtractResources(
+        newState.players[playerIdx].resources,
+        BUILDING_COSTS.ship
+      );
+      newState.bank = addResources(newState.bank, BUILDING_COSTS.ship);
+      newState.players[playerIdx].ships.push(action.edgeId);
+      newState.players[playerIdx].remainingShips--;
+      events.push({ type: 'shipBuilt', playerId, edgeId: action.edgeId });
+      updateLongestRoad(newState, graph, events);
+      checkVictory(newState, events);
+      break;
+    }
+
+    case 'moveShip': {
+      const playerIdx = newState.players.findIndex((p) => p.id === playerId);
+      newState.players[playerIdx].ships = newState.players[playerIdx].ships.filter(
+        (e) => e !== action.fromEdgeId
+      );
+      newState.players[playerIdx].ships.push(action.toEdgeId);
+      events.push({ type: 'shipMoved', playerId, fromEdgeId: action.fromEdgeId, toEdgeId: action.toEdgeId });
+      updateLongestRoad(newState, graph, events);
+      checkVictory(newState, events);
+      break;
+    }
+
+    case 'movePirate': {
+      // Remove pirate from old hex
+      if (newState.pirateHex) {
+        const oldPirateHex = newState.board.hexes.find(
+          (h) => h.coord.q === newState.pirateHex!.q && h.coord.r === newState.pirateHex!.r
+        );
+        if (oldPirateHex) oldPirateHex.hasPirate = false;
+      }
+
+      // Place pirate on new hex
+      newState.pirateHex = action.hex;
+      const newPirateHex = newState.board.hexes.find(
+        (h) => h.coord.q === action.hex.q && h.coord.r === action.hex.r
+      );
+      if (newPirateHex) newPirateHex.hasPirate = true;
+
+      events.push({ type: 'pirateMoved', hex: action.hex, movedByPlayerId: playerId });
+
+      // Check for steal targets (players with ships adjacent to pirate hex)
+      const shipOwners = getPlayersWithShipsOnHex(newState, graph, action.hex)
+        .filter(id => id !== playerId && totalResources(
+          newState.players.find(p => p.id === id)!.resources
+        ) > 0);
+      const uniqueShipTargets = [...new Set(shipOwners)];
+
+      if (uniqueShipTargets.length === 0) {
+        newState.turnPhase = TurnPhase.PostRoll;
+      } else if (uniqueShipTargets.length === 1) {
+        performSteal(newState, playerId, uniqueShipTargets[0], rng, events);
+        newState.turnPhase = TurnPhase.PostRoll;
+      } else {
+        newState.turnPhase = TurnPhase.RobberSteal;
+      }
+      break;
+    }
+
+    case 'chooseGoldResource': {
+      const playerIdx = newState.players.findIndex((p) => p.id === playerId);
+      const pendingIdx = newState.playersNeedingGoldChoice.findIndex(p => p.playerId === playerId);
+      if (pendingIdx >= 0) {
+        const pending = newState.playersNeedingGoldChoice[pendingIdx];
+        // Give the chosen resource (1 per count)
+        const amount = Math.min(pending.count, newState.bank[action.resource]);
+        newState.players[playerIdx].resources[action.resource] += amount;
+        newState.bank[action.resource] -= amount;
+        events.push({ type: 'goldResourceChosen', playerId, resource: action.resource });
+
+        // Remove from pending list
+        newState.playersNeedingGoldChoice.splice(pendingIdx, 1);
+
+        // If no more gold choices needed, continue to PostRoll
+        if (newState.playersNeedingGoldChoice.length === 0) {
+          newState.turnPhase = TurnPhase.PostRoll;
+        }
+      }
+      break;
+    }
+
     case 'endTurn': {
       const currentIdx = newState.currentPlayerIndex;
       events.push({ type: 'turnEnded', playerIndex: currentIdx });
@@ -686,8 +862,28 @@ function distributeResources(
   const distributions: Record<string, ResourceBundle> = {};
   let anyDistributed = false;
 
+  // Track gold hex resource choices needed
+  const goldChoices: Array<{ playerId: string; count: number }> = [];
+
   for (const hex of state.board.hexes) {
     if (hex.numberToken !== roll || hex.hasRobber) continue;
+
+    // Gold hex: players choose their resource later
+    if (hex.terrain === Terrain.Gold) {
+      const playersOnHex = getPlayersOnHex(state, graph, hex.coord);
+      for (const { playerId, isCity } of playersOnHex) {
+        const count = isCity ? 2 : 1;
+        const existing = goldChoices.find(g => g.playerId === playerId);
+        if (existing) {
+          existing.count += count;
+        } else {
+          goldChoices.push({ playerId, count });
+        }
+      }
+      anyDistributed = true;
+      continue;
+    }
+
     const resource = TERRAIN_TO_RESOURCE[hex.terrain];
     if (!resource) continue;
 
@@ -706,10 +902,16 @@ function distributeResources(
     }
   }
 
-  if (anyDistributed) {
+  if (Object.keys(distributions).length > 0) {
     events.push({ type: 'resourcesDistributed', distributions });
-  } else {
+  }
+  if (!anyDistributed) {
     events.push({ type: 'noResourcesProduced', roll });
+  }
+
+  // Queue gold choices if any
+  if (goldChoices.length > 0) {
+    state.playersNeedingGoldChoice = goldChoices;
   }
 }
 

@@ -7,6 +7,8 @@ export const TERRAIN_COLORS: Record<Terrain, string> = {
   [Terrain.Fields]: '#d4a830',
   [Terrain.Pasture]: '#5db84a',
   [Terrain.Desert]: '#d6c894',
+  [Terrain.Sea]: '#1a5fa0',
+  [Terrain.Gold]: '#c9a820',
 };
 
 export const TERRAIN_COLORS_LIGHT: Record<Terrain, string> = {
@@ -16,6 +18,8 @@ export const TERRAIN_COLORS_LIGHT: Record<Terrain, string> = {
   [Terrain.Fields]: '#ecc44a',
   [Terrain.Pasture]: '#7ed464',
   [Terrain.Desert]: '#ece0b4',
+  [Terrain.Sea]: '#2a7fc0',
+  [Terrain.Gold]: '#e8c830',
 };
 
 export const TERRAIN_LABELS: Record<Terrain, string> = {
@@ -25,6 +29,8 @@ export const TERRAIN_LABELS: Record<Terrain, string> = {
   [Terrain.Fields]: 'Grain',
   [Terrain.Pasture]: 'Wool',
   [Terrain.Desert]: 'Desert',
+  [Terrain.Sea]: 'Sea',
+  [Terrain.Gold]: 'Gold',
 };
 
 // SVG path data for small terrain icons (centered at 0,0, designed for ~12px)
@@ -35,6 +41,8 @@ export const TERRAIN_ICONS: Record<Terrain, string> = {
   [Terrain.Fields]: 'M0,-4 C2,-4 3,-2 3,0 C3,2 2,4 0,4 C-2,4 -3,2 -3,0 C-3,-2 -2,-4 0,-4 M-1,-2 L-1,2 M1,-3 L1,1',  // wheat
   [Terrain.Pasture]: 'M-3,0 C-3,-3 3,-3 3,0 C3,2 -3,2 -3,0',  // cloud/wool
   [Terrain.Desert]: 'M-5,2 Q-2,-2 0,2 Q2,-1 5,2',  // sand dune
+  [Terrain.Sea]: 'M-5,0 Q-3,-2 -1,0 Q1,2 3,0 Q5,-2 7,0',  // wave
+  [Terrain.Gold]: 'M0,-4 L1.5,-1.5 L4.5,-1.5 L2,0.5 L3,3.5 L0,1.5 L-3,3.5 L-2,0.5 L-4.5,-1.5 L-1.5,-1.5 Z',  // star
 };
 
 export const HARBOR_RESOURCE: Record<HarborType, ResourceType | null> = {

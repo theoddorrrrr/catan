@@ -82,6 +82,7 @@ export const BUILDING_COSTS = {
   settlement: { [ResourceType.Brick]: 1, [ResourceType.Lumber]: 1, [ResourceType.Ore]: 0, [ResourceType.Grain]: 1, [ResourceType.Wool]: 1 } as ResourceBundle,
   city: { [ResourceType.Brick]: 0, [ResourceType.Lumber]: 0, [ResourceType.Ore]: 3, [ResourceType.Grain]: 2, [ResourceType.Wool]: 0 } as ResourceBundle,
   devCard: { [ResourceType.Brick]: 0, [ResourceType.Lumber]: 0, [ResourceType.Ore]: 1, [ResourceType.Grain]: 1, [ResourceType.Wool]: 1 } as ResourceBundle,
+  ship: { [ResourceType.Brick]: 0, [ResourceType.Lumber]: 1, [ResourceType.Ore]: 0, [ResourceType.Grain]: 0, [ResourceType.Wool]: 1 } as ResourceBundle,
 } as const;
 
 // Terrain to resource mapping
@@ -92,6 +93,8 @@ export enum Terrain {
   Fields = 'fields',
   Pasture = 'pasture',
   Desert = 'desert',
+  Sea = 'sea',
+  Gold = 'gold',
 }
 
 export const TERRAIN_TO_RESOURCE: Record<Terrain, ResourceType | null> = {
@@ -101,4 +104,6 @@ export const TERRAIN_TO_RESOURCE: Record<Terrain, ResourceType | null> = {
   [Terrain.Fields]: ResourceType.Grain,
   [Terrain.Pasture]: ResourceType.Wool,
   [Terrain.Desert]: null,
+  [Terrain.Sea]: null,
+  [Terrain.Gold]: null, // Gold lets player choose — handled specially in engine
 };

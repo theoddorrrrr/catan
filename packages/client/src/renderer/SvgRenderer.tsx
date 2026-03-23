@@ -112,11 +112,13 @@ export function SvgRenderer({
   const settlementMap = new Map<VertexId, PlayerColor>();
   const cityMap = new Map<VertexId, PlayerColor>();
   const roadMap = new Map<EdgeId, PlayerColor>();
+  const shipMap = new Map<EdgeId, PlayerColor>();
 
   for (const player of state.players) {
     for (const v of player.settlements) settlementMap.set(v, player.color);
     for (const v of player.cities) cityMap.set(v, player.color);
     for (const e of player.roads) roadMap.set(e, player.color);
+    for (const e of player.ships) shipMap.set(e, player.color);
   }
 
   const interactive = !!(highlightVertices?.size || highlightEdges?.size || highlightHexes?.size);
@@ -169,7 +171,7 @@ export function SvgRenderer({
               }}
             />
             {/* Terrain icon (subtle, behind number) */}
-            {hex.terrain !== Terrain.Desert && (
+            {hex.terrain !== Terrain.Desert && hex.terrain !== Terrain.Sea && (
               <path
                 d={iconPath}
                 transform={`translate(${center.x},${center.y - hexSize * 0.25}) scale(${hexSize * 0.03})`}
@@ -213,6 +215,19 @@ export function SvgRenderer({
                 <text x={center.x} y={center.y + 1} textAnchor="middle" dominantBaseline="central"
                   fontSize={hexSize * 0.16} fill="#fff" style={{ pointerEvents: 'none' }}>
                   R
+                </text>
+              </>
+            )}
+            {hex.hasPirate && (
+              <>
+                <circle
+                  cx={center.x} cy={center.y} r={hexSize * 0.18}
+                  fill="rgba(80,0,80,0.8)" stroke="rgba(255,100,255,0.4)" strokeWidth={1.5}
+                  style={{ pointerEvents: 'none' }}
+                />
+                <text x={center.x} y={center.y + 1} textAnchor="middle" dominantBaseline="central"
+                  fontSize={hexSize * 0.16} fill="#fff" style={{ pointerEvents: 'none' }}>
+                  P
                 </text>
               </>
             )}
@@ -299,6 +314,37 @@ export function SvgRenderer({
             strokeLinecap="round"
             style={{ pointerEvents: 'none' }}
           />
+        );
+      })}
+
+      {/* Ships (Seafarers) */}
+      {[...shipMap.entries()].map(([edgeId, color]) => {
+        const [p1, p2] = edgeToPixels(edgeId, hexSize);
+        const mx = (p1.x + p2.x) / 2;
+        const my = (p1.y + p2.y) / 2;
+        const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
+        const len = hexSize * 0.3;
+        const w = hexSize * 0.12;
+        return (
+          <g key={`ship-${edgeId}`} style={{ pointerEvents: 'none' }}>
+            {/* Ship hull */}
+            <rect
+              x={mx - len} y={my - w / 2}
+              width={len * 2} height={w}
+              rx={w / 2}
+              fill={PLAYER_COLORS[color]}
+              stroke={PLAYER_COLORS_DARK[color]}
+              strokeWidth={1.5}
+              transform={`rotate(${angle},${mx},${my})`}
+            />
+            {/* Mast */}
+            <line
+              x1={mx} y1={my - w * 1.5} x2={mx} y2={my + w * 0.5}
+              stroke={PLAYER_COLORS_DARK[color]}
+              strokeWidth={1.5}
+              transform={`rotate(${angle},${mx},${my})`}
+            />
+          </g>
         );
       })}
 

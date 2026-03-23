@@ -33,7 +33,12 @@ export type GameEvent =
   | { type: 'victoryPointsUpdated'; playerId: string; publicVP: number }
   | { type: 'turnEnded'; playerIndex: number }
   | { type: 'gameWon'; winnerId: string; finalScores: Record<string, number> }
-  | { type: 'initialResourcesGranted'; playerId: string; resources: ResourceBundle };
+  | { type: 'initialResourcesGranted'; playerId: string; resources: ResourceBundle }
+  // Seafarers events
+  | { type: 'shipBuilt'; playerId: string; edgeId: EdgeId }
+  | { type: 'shipMoved'; playerId: string; fromEdgeId: EdgeId; toEdgeId: EdgeId }
+  | { type: 'pirateMoved'; hex: HexCoord; movedByPlayerId: string }
+  | { type: 'goldResourceChosen'; playerId: string; resource: ResourceType };
 
 export interface TimestampedEvent {
   index: number;

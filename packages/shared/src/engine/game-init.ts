@@ -2,6 +2,8 @@ import { GameState, GamePhase, TurnPhase, GameConfig, DEFAULT_CONFIG } from '../
 import { Player, createPlayer, PlayerColor, ALL_PLAYER_COLORS } from '../types/player.js';
 import { DevCardType, DEV_CARD_COUNTS, ResourceType, emptyResources } from '../types/resource.js';
 import { generateBoard, findDesertHex } from '../board/board-generator.js';
+import { generateSeafarersBoard, findSeafarersRobberHex, findSeafarersPirateHex } from '../board/seafarers-generator.js';
+import { SEAFARERS_SCENARIOS } from '../board/seafarers-scenarios.js';
 import { BoardGraph, buildBoardGraph, generateHexCoords } from '../board/hex-grid.js';
 import { SeededRandom } from '../utils/random.js';
 
@@ -19,7 +21,11 @@ export function createGame(
   const seed = fullConfig.boardSeed ?? Math.floor(Math.random() * 2147483647);
   const rng = new SeededRandom(seed);
 
-  const { board, graph } = generateBoard(seed);
+  // Generate board based on whether Seafarers is enabled
+  const isSeafarers = fullConfig.seafarersEnabled && fullConfig.seafarersScenario;
+  const { board, graph } = isSeafarers
+    ? generateSeafarersBoard(fullConfig.seafarersScenario!, seed)
+    : generateBoard(seed);
 
   // Create dev card deck
   const devCardDeck: DevCardType[] = [];
@@ -43,7 +49,18 @@ export function createGame(
     players.push(createPlayer(`bot-${i}`, `Bot ${i + 1}`, ALL_PLAYER_COLORS[i], true));
   }
 
-  const desertHex = findDesertHex(board.hexes);
+  const desertHex = isSeafarers
+    ? findSeafarersRobberHex(board.hexes)
+    : findDesertHex(board.hexes);
+  const pirateHex = isSeafarers ? findSeafarersPirateHex(board.hexes) : null;
+
+  // Seafarers scenarios may override VP target
+  if (isSeafarers) {
+    const scenarioDef = SEAFARERS_SCENARIOS[fullConfig.seafarersScenario!];
+    if (scenarioDef?.victoryPointsToWin) {
+      fullConfig.victoryPointsToWin = scenarioDef.victoryPointsToWin;
+    }
+  }
 
   const state: GameState = {
     gameId,
@@ -67,7 +84,9 @@ export function createGame(
     activeTradeOffer: null,
 
     robberHex: desertHex,
+    pirateHex,
     playersNeedingDiscard: [],
+    playersNeedingGoldChoice: [],
 
     longestRoadPlayerId: null,
     longestRoadLength: 0,

@@ -160,6 +160,14 @@ export class GameSession {
       });
     }
 
+    // Gold choice phase — check if any bot needs to choose
+    if (s.turnPhase === TurnPhase.GoldChoice) {
+      return s.playersNeedingGoldChoice.some(({ playerId: id }) => {
+        const p = s.players.find((pl) => pl.id === id);
+        return p?.isBot;
+      });
+    }
+
     // Playing phase — current player is bot
     if (s.phase === GamePhase.Playing) {
       const current = s.players[s.currentPlayerIndex];
@@ -209,6 +217,19 @@ export class GameSession {
         if (botDiscarder) {
           const action = this.bot.chooseAction(s, botDiscarder, this.graph);
           this.handleAction(botDiscarder, action);
+        }
+        return;
+      }
+
+      // Gold choice phase
+      if (s.turnPhase === TurnPhase.GoldChoice) {
+        const botChooser = s.playersNeedingGoldChoice.find(({ playerId: id }) => {
+          const p = s.players.find((pl) => pl.id === id);
+          return p?.isBot;
+        });
+        if (botChooser) {
+          const action = this.bot.chooseAction(s, botChooser.playerId, this.graph);
+          this.handleAction(botChooser.playerId, action);
         }
         return;
       }

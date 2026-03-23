@@ -1,7 +1,7 @@
 import { GameState, GamePhase } from '../types/game.js';
 import { GameEvent } from '../types/event.js';
 import { BoardGraph } from '../board/hex-grid.js';
-import { calculateLongestRoad } from './board-query.js';
+import { calculateLongestRoad, calculateLongestTradeRoute } from './board-query.js';
 
 export function calculateVP(state: GameState, playerIdx: number): number {
   const player = state.players[playerIdx];
@@ -19,7 +19,10 @@ export function updateLongestRoad(state: GameState, graph: BoardGraph, events: G
   let longestPlayerId = state.longestRoadPlayerId;
 
   for (let i = 0; i < state.players.length; i++) {
-    const roadLen = calculateLongestRoad(state, graph, state.players[i].id);
+    // In Seafarers, use longest trade route (roads + ships); otherwise just roads
+    const roadLen = state.config.seafarersEnabled
+      ? calculateLongestTradeRoute(state, graph, state.players[i].id)
+      : calculateLongestRoad(state, graph, state.players[i].id);
 
     if (roadLen >= 5 && roadLen > longestLength) {
       longestLength = roadLen;

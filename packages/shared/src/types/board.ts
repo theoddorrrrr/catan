@@ -14,8 +14,9 @@ export type EdgeId = string;
 export interface HexTile {
   coord: HexCoord;
   terrain: Terrain;
-  numberToken: number | null; // null for desert
+  numberToken: number | null; // null for desert/sea
   hasRobber: boolean;
+  hasPirate?: boolean; // Seafarers: pirate on sea hex
 }
 
 export enum HarborType {

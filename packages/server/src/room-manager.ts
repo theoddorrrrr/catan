@@ -228,6 +228,21 @@ export class RoomManager {
     return roomData.room.roomCode;
   }
 
+  setConfig(sessionToken: string, config: Partial<GameConfig>): string | null {
+    const roomData = this.sessionIndex.get(sessionToken);
+    if (!roomData) return null;
+
+    const playerSession = roomData.playerSessions.get(sessionToken);
+    if (!playerSession) return null;
+
+    // Only host can change config
+    if (roomData.room.hostPlayerId !== playerSession.playerId) return null;
+    if (roomData.room.status !== 'waiting') return null;
+
+    roomData.room.config = { ...roomData.room.config, ...config };
+    return roomData.room.roomCode;
+  }
+
   canStartGame(roomCode: string, requesterId: string): { ok: boolean; error?: string } {
     const roomData = this.rooms.get(roomCode);
     if (!roomData) return { ok: false, error: 'Room not found' };

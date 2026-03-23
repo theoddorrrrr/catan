@@ -27,22 +27,24 @@ function DieFace({ value }: { value: number }) {
 }
 
 export function DiceDisplay({ dice }: DiceDisplayProps) {
-  if (!dice) return null;
-
-  const total = dice[0] + dice[1];
+  const total = dice ? dice[0] + dice[1] : 0;
   const isRed = total === 7;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <DieFace value={dice[0]} />
-      <DieFace value={dice[1]} />
-      <span style={{
-        fontSize: '1.2em',
-        fontWeight: 'bold',
-        color: isRed ? '#e74c3c' : '#fff',
-      }}>
-        = {total}
-      </span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '130px', height: '40px' }}>
+      {dice && (
+        <>
+          <DieFace value={dice[0]} />
+          <DieFace value={dice[1]} />
+          <span style={{
+            fontSize: '1.2em',
+            fontWeight: 'bold',
+            color: isRed ? '#e74c3c' : '#fff',
+          }}>
+            = {total}
+          </span>
+        </>
+      )}
     </div>
   );
 }

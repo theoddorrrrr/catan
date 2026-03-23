@@ -10,14 +10,17 @@ import {
   hexKey,
   emptyResources,
   ResourceType,
+  Terrain,
   getTradeRate,
   getValidSettlementVertices,
   getValidRoadEdges,
+  getValidShipEdges,
   getValidInitialSettlementVertices,
   getValidRoadEdgesFromVertex,
   totalResources,
   hasResources,
   GameAction,
+  ALL_RESOURCES,
 } from '@catan/shared';
 import { BoardGraph } from '@catan/shared';
 import { SvgRenderer } from '../renderer/SvgRenderer';
@@ -190,9 +193,18 @@ export function GameView({
         highlightEdges.add(e);
       }
     }
+    if (interactionMode.type === 'buildShip') {
+      for (const e of getValidShipEdges(state, graph, humanPlayerId)) {
+        highlightEdges.add(e);
+      }
+    }
     if (interactionMode.type === 'playKnight' || (state.turnPhase === TurnPhase.RobberMove && state.players[state.currentPlayerIndex]?.id === humanPlayerId)) {
+      // In Seafarers, highlight both land hexes (for robber) and sea hexes (for pirate)
       for (const hex of state.board.hexes) {
-        if (!(hex.coord.q === state.robberHex.q && hex.coord.r === state.robberHex.r)) {
+        const isCurrentRobber = hex.coord.q === state.robberHex.q && hex.coord.r === state.robberHex.r;
+        const isCurrentPirate = state.pirateHex &&
+          hex.coord.q === state.pirateHex.q && hex.coord.r === state.pirateHex.r;
+        if (!isCurrentRobber && !isCurrentPirate) {
           highlightHexes.add(hexKey(hex.coord));
         }
       }
@@ -236,6 +248,8 @@ export function GameView({
       doGameAction({ type: 'placeInitialRoad', edgeId });
     } else if (interactionMode.type === 'buildRoad') {
       doGameAction({ type: 'buildRoad', edgeId });
+    } else if (interactionMode.type === 'buildShip') {
+      doGameAction({ type: 'buildShip', edgeId });
     } else if (interactionMode.type === 'playRoadBuilding') {
       if (!interactionMode.placedFirst) {
         doAction({ type: 'buildRoad', edgeId });
@@ -250,7 +264,15 @@ export function GameView({
   const handleHexClick = useCallback((coord: HexCoord) => {
     if (!state || !humanPlayerId) return;
     if (state.turnPhase === TurnPhase.RobberMove || interactionMode.type === 'playKnight') {
-      doGameAction({ type: 'moveRobber', hex: coord });
+      // In Seafarers, clicking a sea hex moves the pirate; clicking a land hex moves the robber
+      const hex = state.board.hexes.find(
+        h => h.coord.q === coord.q && h.coord.r === coord.r && h.coord.s === coord.s
+      );
+      if (hex && hex.terrain === Terrain.Sea && state.config.seafarersEnabled) {
+        doGameAction({ type: 'movePirate', hex: coord });
+      } else {
+        doGameAction({ type: 'moveRobber', hex: coord });
+      }
     }
   }, [state, humanPlayerId, interactionMode, doGameAction]);
 
@@ -494,6 +516,44 @@ export function GameView({
           onClose={() => setTradeResult(null)}
         />
       )}
+
+      {/* Gold resource choice dialog (Seafarers) */}
+      {humanPlayerId && state.turnPhase === TurnPhase.GoldChoice && (() => {
+        const pending = state.playersNeedingGoldChoice.find(p => p.playerId === humanPlayerId);
+        if (!pending) return null;
+        return (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 40,
+          }}>
+            <div style={{
+              background: '#1a1a2e', borderRadius: '12px', padding: '24px',
+              color: '#eee', maxWidth: '340px', textAlign: 'center',
+            }}>
+              <h3 style={{ margin: '0 0 12px', color: '#c9a820' }}>Gold Hex!</h3>
+              <p style={{ fontSize: '0.9em', color: '#aaa', marginBottom: '16px' }}>
+                Choose {pending.count} resource{pending.count > 1 ? 's' : ''} from the gold hex:
+              </p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                {ALL_RESOURCES.map(r => (
+                  <button
+                    key={r}
+                    onClick={() => doGameAction({ type: 'chooseGoldResource', resource: r })}
+                    style={{
+                      padding: '10px 16px', borderRadius: '8px', border: 'none',
+                      background: r === 'brick' ? '#c45a2c' : r === 'lumber' ? '#2d6a2d' :
+                        r === 'ore' ? '#8a8a8a' : r === 'grain' ? '#e8c44a' : '#7ec850',
+                      color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9em',
+                    }}
+                  >
+                    {r.charAt(0).toUpperCase() + r.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {humanPlayerId && state.turnPhase === TurnPhase.RobberDiscard && state.playersNeedingDiscard.includes(humanPlayerId) && (() => {
         const player = state.players.find((p) => p.id === humanPlayerId)!;

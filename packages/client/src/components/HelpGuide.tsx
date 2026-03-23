@@ -6,10 +6,11 @@ interface HelpGuideProps {
   onClose: () => void;
 }
 
-type TabId = 'base';
+type TabId = 'base' | 'seafarers';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'base', label: 'Base Game' },
+  { id: 'seafarers', label: 'Seafarers' },
 ];
 
 export function HelpGuide({ onClose }: HelpGuideProps) {
@@ -40,13 +41,14 @@ export function HelpGuide({ onClose }: HelpGuideProps) {
             </button>
           ))}
           <span style={{ color: '#555', fontSize: '0.8em', marginLeft: 'auto', fontStyle: 'italic' }}>
-            More expansions coming soon
+            More expansions coming
           </span>
         </div>
 
         {/* Content */}
         <div style={contentStyle}>
           {activeTab === 'base' && <BaseGameGuide />}
+          {activeTab === 'seafarers' && <SeafarersGuide />}
         </div>
       </div>
     </div>
@@ -201,6 +203,77 @@ function BaseGameGuide() {
           <VPSource label="Victory Point Card" vp={1} note="each" />
         </div>
       </Section>
+    </div>
+  );
+}
+
+function SeafarersGuide() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <Section title="Overview">
+        <p>
+          The Seafarers expansion adds <strong>ships</strong>, <strong>sea hexes</strong>, <strong>gold hexes</strong>,
+          and the <strong>pirate</strong> to the game. Players explore the ocean and settle new islands to earn bonus victory points.
+          The VP target is raised to <strong>12–14</strong> depending on the scenario.
+        </p>
+      </Section>
+
+      <Section title="Ships">
+        <p>
+          Ships work like roads but are placed on <strong>sea edges</strong> (edges bordering at least one sea hex).
+          Ships connect to your road network and can extend your trade routes to new islands.
+        </p>
+        <CostRow label="Ship" resources={[ResourceType.Lumber, ResourceType.Wool]} />
+        <p style={{ marginTop: '6px' }}>
+          Each player has <strong>15 ships</strong>. Ships count toward your <strong>Longest Trade Route</strong>
+          (which replaces Longest Road in Seafarers).
+        </p>
+      </Section>
+
+      <Section title="Gold Hexes">
+        <p>
+          When a gold hex's number is rolled, each player with a settlement or city on it
+          <strong> chooses any resource</strong> they want (one per settlement, two per city).
+        </p>
+      </Section>
+
+      <Section title="The Pirate">
+        <p>
+          The pirate works like the robber but on <strong>sea hexes</strong>. When you roll a 7 or play a Knight:
+        </p>
+        <ul style={listStyle}>
+          <li>You can move the <strong>robber</strong> to a land hex, or the <strong>pirate</strong> to a sea hex.</li>
+          <li>The pirate <strong>blocks ship building</strong> on adjacent edges.</li>
+          <li>You steal a resource from a player who has a <strong>ship adjacent</strong> to the pirate hex.</li>
+        </ul>
+      </Section>
+
+      <Section title="Longest Trade Route">
+        <p>
+          In Seafarers, <strong>Longest Road</strong> is replaced by <strong>Longest Trade Route</strong>.
+          This counts your longest continuous path of <strong>roads and ships combined</strong>.
+          The minimum length is still <strong>5 segments</strong> for 2 VP.
+        </p>
+      </Section>
+
+      <Section title="Scenarios">
+        <p>Seafarers includes 4 scenarios with different board layouts and strategies:</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', margin: '8px 0' }}>
+          <ScenarioRow name="Heading for New Shores" desc="A main island and smaller islands to discover. 12 VP to win." />
+          <ScenarioRow name="The Four Islands" desc="Four separate islands — you must build ships to reach them all. 13 VP to win." />
+          <ScenarioRow name="Through the Desert" desc="A large island split by desert, surrounded by rich outer islands. 13 VP to win." />
+          <ScenarioRow name="The New World" desc="Fully randomized sea and land — explore to find the best resources. 14 VP to win." />
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+function ScenarioRow({ name, desc }: { name: string; desc: string }) {
+  return (
+    <div style={{ padding: '6px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px' }}>
+      <strong style={{ color: '#3498db' }}>{name}</strong>
+      <p style={{ margin: '2px 0 0', color: '#aaa', fontSize: '0.9em' }}>{desc}</p>
     </div>
   );
 }

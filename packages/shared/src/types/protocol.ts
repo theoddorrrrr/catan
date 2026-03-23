@@ -42,6 +42,7 @@ export interface ClientToServerEvents {
   'lobby:setReady': (ready: boolean) => void;
   'lobby:setColor': (color: PlayerColor) => void;
   'lobby:setSlotType': (slotIndex: number, type: 'bot' | 'open') => void;
+  'lobby:setConfig': (config: Partial<GameConfig>) => void;
   'lobby:start': (cb: (res: { ok: boolean; error?: string }) => void) => void;
   'lobby:leave': () => void;
 

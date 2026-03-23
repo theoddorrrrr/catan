@@ -138,6 +138,18 @@ export function setupSocketHandlers(
       io.to(session.roomData.room.roomCode).emit('lobby:update', session.roomData.room);
     });
 
+    // --- Lobby: Set config (host only) ---
+    socket.on('lobby:setConfig', (config) => {
+      const sessionToken = socketToSession.get(socket.id);
+      if (!sessionToken) return;
+
+      const roomCode = roomManager.setConfig(sessionToken, config);
+      if (!roomCode) return;
+
+      const roomData = roomManager.getRoomByCode(roomCode)!;
+      io.to(roomCode).emit('lobby:update', roomData.room);
+    });
+
     // --- Lobby: Start game (host only) ---
     socket.on('lobby:start', (cb) => {
       const sessionToken = socketToSession.get(socket.id);

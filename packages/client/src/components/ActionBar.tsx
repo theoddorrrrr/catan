@@ -13,6 +13,7 @@ export type InteractionMode =
   | { type: 'buildSettlement' }
   | { type: 'buildCity' }
   | { type: 'buildRoad' }
+  | { type: 'buildShip' }
   | { type: 'moveRobber' }
   | { type: 'stealResource' }
   | { type: 'placeInitialSettlement' }
@@ -101,11 +102,32 @@ export function ActionBar({
     );
   }
 
+  // Gold choice phase
+  if (state.turnPhase === TurnPhase.GoldChoice) {
+    const pending = state.playersNeedingGoldChoice?.find((p: any) => p.playerId === humanPlayerId);
+    if (pending) {
+      return (
+        <div style={barStyle}>
+          <span style={{ color: '#c9a820', fontWeight: 'bold' }}>Choose a resource from the gold hex!</span>
+        </div>
+      );
+    }
+    return (
+      <div style={barStyle}>
+        <span style={{ color: '#888' }}>Waiting for gold hex choices...</span>
+      </div>
+    );
+  }
+
   // Robber phases
   if (state.turnPhase === TurnPhase.RobberMove) {
     return (
       <div style={barStyle}>
-        <span style={{ color: '#e74c3c', fontWeight: 'bold' }}>Click a hex to move the robber</span>
+        <span style={{ color: '#e74c3c', fontWeight: 'bold' }}>
+          {state.config.seafarersEnabled
+            ? 'Click a land hex for robber, or sea hex for pirate'
+            : 'Click a hex to move the robber'}
+        </span>
       </div>
     );
   }
@@ -145,6 +167,7 @@ export function ActionBar({
             canBuild={canBuild}
             devCardDeckSize={(state as any).devCardDeckSize ?? state.devCardDeck.length}
             devCardsEnabled={state.config.devCardsEnabled}
+            seafarersEnabled={state.config.seafarersEnabled}
             activeMode={interactionMode.type}
             onSelectMode={(mode) => onSetMode({ type: mode } as InteractionMode)}
             onBuyDevCard={onBuyDevCard}
@@ -168,6 +191,7 @@ export function ActionBar({
       {interactionMode.type !== 'none' && canBuild && (
         <span style={{ color: '#f1c40f', fontSize: '0.8em' }}>
           {interactionMode.type === 'buildRoad' && '| Click edge to build road'}
+          {interactionMode.type === 'buildShip' && '| Click sea edge to build ship'}
           {interactionMode.type === 'buildSettlement' && '| Click vertex to build settlement'}
           {interactionMode.type === 'buildCity' && '| Click settlement to upgrade'}
           {interactionMode.type === 'playRoadBuilding' && '| Click edge for free road (1/2)'}

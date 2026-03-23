@@ -23,7 +23,13 @@ export type GameAction =
   | { type: 'bankTrade'; giving: ResourceBundle; receiving: ResourceBundle }
   | { type: 'endTurn' }
   | { type: 'placeInitialSettlement'; vertexId: VertexId }
-  | { type: 'placeInitialRoad'; edgeId: EdgeId };
+  | { type: 'placeInitialRoad'; edgeId: EdgeId }
+  // Seafarers actions
+  | { type: 'buildShip'; edgeId: EdgeId }
+  | { type: 'moveShip'; fromEdgeId: EdgeId; toEdgeId: EdgeId }
+  | { type: 'movePirate'; hex: HexCoord }
+  | { type: 'chooseGoldResource'; resource: ResourceType }
+  | { type: 'placeInitialShip'; edgeId: EdgeId };
 
 export interface ActionEnvelope {
   action: GameAction;

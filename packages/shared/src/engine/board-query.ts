@@ -1,6 +1,6 @@
 import { GameState } from '../types/game.js';
 import { HexCoord, VertexId, EdgeId, hexKey, HarborType } from '../types/board.js';
-import { ResourceType } from '../types/resource.js';
+import { ResourceType, Terrain } from '../types/resource.js';
 import { BoardGraph } from '../board/hex-grid.js';
 
 // Query functions that operate on game state + board graph
@@ -258,4 +258,222 @@ export function calculateLongestRoad(
   }
 
   return longest;
+}
+
+// ========== Seafarers: Ship & Sea Edge Queries ==========
+
+/** Check if an edge is a sea edge (at least one adjacent hex is sea) */
+export function isSeaEdge(
+  state: GameState,
+  graph: BoardGraph,
+  edgeId: EdgeId
+): boolean {
+  const vertices = graph.edgeToVertices.get(edgeId);
+  if (!vertices) return false;
+
+  // An edge borders the hexes that both vertices share
+  const [v1, v2] = vertices;
+  const v1Hexes = graph.vertexToHexes.get(v1) || [];
+  const v2Hexes = graph.vertexToHexes.get(v2) || [];
+
+  // Find hexes shared by both vertices (these are the hexes bordering this edge)
+  const v1HexKeys = new Set(v1Hexes.map(hexKey));
+  const sharedHexes = v2Hexes.filter(h => v1HexKeys.has(hexKey(h)));
+
+  // Check if any shared hex is sea
+  for (const h of sharedHexes) {
+    const tile = state.board.hexes.find(
+      t => t.coord.q === h.q && t.coord.r === h.r && t.coord.s === h.s
+    );
+    if (tile && tile.terrain === Terrain.Sea) return true;
+  }
+
+  // Also sea if edge is on board boundary and one side is "off board" (treat as sea)
+  if (sharedHexes.length < 2) return true;
+
+  return false;
+}
+
+/** Check if an edge is a land edge (both adjacent hexes are land or only one hex and it's land) */
+export function isLandEdge(
+  state: GameState,
+  graph: BoardGraph,
+  edgeId: EdgeId
+): boolean {
+  return !isSeaEdge(state, graph, edgeId);
+}
+
+/** Get the owner of a ship on an edge */
+export function getShipOwner(state: GameState, edgeId: EdgeId): string | null {
+  for (const player of state.players) {
+    if (player.ships.includes(edgeId)) {
+      return player.id;
+    }
+  }
+  return null;
+}
+
+/** Check if edge is occupied by road or ship */
+export function isEdgeOccupiedByAny(state: GameState, edgeId: EdgeId): boolean {
+  return getEdgeOwner(state, edgeId) !== null || getShipOwner(state, edgeId) !== null;
+}
+
+/** Check if player has an adjacent road, ship, or building to a vertex */
+export function playerHasAdjacentConnectionOrBuilding(
+  state: GameState,
+  graph: BoardGraph,
+  playerId: string,
+  vertexId: VertexId
+): boolean {
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return false;
+
+  if (player.settlements.includes(vertexId) || player.cities.includes(vertexId)) return true;
+
+  const adjacentEdges = graph.vertexToEdges.get(vertexId) || [];
+  for (const edgeId of adjacentEdges) {
+    if (player.roads.includes(edgeId) || player.ships.includes(edgeId)) return true;
+  }
+  return false;
+}
+
+/** Check if player can place a ship on an edge */
+export function playerCanPlaceShipOnEdge(
+  state: GameState,
+  graph: BoardGraph,
+  playerId: string,
+  edgeId: EdgeId
+): boolean {
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return false;
+
+  // Ship must be on a sea edge
+  if (!isSeaEdge(state, graph, edgeId)) return false;
+
+  // Must connect to player's network (road, ship, or building at one of the edge's vertices)
+  const vertices = graph.edgeToVertices.get(edgeId);
+  if (!vertices) return false;
+
+  for (const v of vertices) {
+    const owner = getVertexOwner(state, v);
+    if (owner && owner !== playerId) continue; // Blocked by opponent building
+
+    if (playerHasAdjacentConnectionOrBuilding(state, graph, playerId, v)) return true;
+  }
+  return false;
+}
+
+/** Get valid ship edges for a player */
+export function getValidShipEdges(
+  state: GameState,
+  graph: BoardGraph,
+  playerId: string
+): EdgeId[] {
+  const result: EdgeId[] = [];
+  for (const edgeId of graph.edges) {
+    if (
+      !isEdgeOccupiedByAny(state, edgeId) &&
+      playerCanPlaceShipOnEdge(state, graph, playerId, edgeId)
+    ) {
+      result.push(edgeId);
+    }
+  }
+  return result;
+}
+
+/**
+ * Check if a ship is "open" (can be moved).
+ * An open ship is at the end of a shipping route - one of its endpoints
+ * is not connected to another ship or building of the same player.
+ */
+export function isShipOpen(
+  state: GameState,
+  graph: BoardGraph,
+  playerId: string,
+  edgeId: EdgeId
+): boolean {
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return false;
+
+  const vertices = graph.edgeToVertices.get(edgeId);
+  if (!vertices) return false;
+
+  const [v1, v2] = vertices;
+
+  // Count connections at each endpoint (other ships or buildings)
+  function countConnections(v: VertexId): number {
+    let count = 0;
+    if (player!.settlements.includes(v) || player!.cities.includes(v)) count++;
+    const adjEdges = graph.vertexToEdges.get(v) || [];
+    for (const e of adjEdges) {
+      if (e !== edgeId && player!.ships.includes(e)) count++;
+    }
+    return count;
+  }
+
+  // Ship is open if at least one endpoint has no other connections
+  return countConnections(v1) === 0 || countConnections(v2) === 0;
+}
+
+/**
+ * Calculate longest trade route for a player (roads + ships combined).
+ * Used in Seafarers instead of longest road.
+ */
+export function calculateLongestTradeRoute(
+  state: GameState,
+  graph: BoardGraph,
+  playerId: string
+): number {
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return 0;
+
+  const playerEdges = new Set([...player.roads, ...player.ships]);
+  if (playerEdges.size === 0) return 0;
+
+  let longest = 0;
+
+  function dfs(vertexId: VertexId, visited: Set<EdgeId>, length: number) {
+    longest = Math.max(longest, length);
+
+    const adjacentEdges = graph.vertexToEdges.get(vertexId) || [];
+    for (const edgeId of adjacentEdges) {
+      if (!playerEdges.has(edgeId) || visited.has(edgeId)) continue;
+
+      const owner = getVertexOwner(state, vertexId);
+      if (owner && owner !== playerId && length > 0) continue;
+
+      const [v1, v2] = graph.edgeToVertices.get(edgeId)!;
+      const nextVertex = v1 === vertexId ? v2 : v1;
+
+      visited.add(edgeId);
+      dfs(nextVertex, visited, length + 1);
+      visited.delete(edgeId);
+    }
+  }
+
+  for (const edge of playerEdges) {
+    const [v1, v2] = graph.edgeToVertices.get(edge)!;
+    dfs(v1, new Set(), 0);
+    dfs(v2, new Set(), 0);
+  }
+
+  return longest;
+}
+
+/** Get players with ships adjacent to a hex (for pirate steal) */
+export function getPlayersWithShipsOnHex(
+  state: GameState,
+  graph: BoardGraph,
+  hexCoord: HexCoord
+): string[] {
+  const hk = hexKey(hexCoord);
+  const hexEdges = graph.hexToEdges.get(hk) || [];
+  const playerIds = new Set<string>();
+
+  for (const edgeId of hexEdges) {
+    const shipOwner = getShipOwner(state, edgeId);
+    if (shipOwner) playerIds.add(shipOwner);
+  }
+
+  return [...playerIds];
 }

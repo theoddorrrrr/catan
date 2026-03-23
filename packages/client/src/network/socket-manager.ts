@@ -210,6 +210,10 @@ class SocketManager {
     this.socket?.emit('lobby:setSlotType', slotIndex, type);
   }
 
+  setConfig(config: Partial<import('@catan/shared').GameConfig>): void {
+    this.socket?.emit('lobby:setConfig', config);
+  }
+
   async startGame(): Promise<{ ok: boolean; error?: string }> {
     this.ensureConnected();
     return new Promise((resolve) => {

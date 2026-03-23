@@ -1,6 +1,7 @@
 import { GameState } from '../types/game.js';
 import { VertexId, HexCoord, hexKey } from '../types/board.js';
 import { Terrain, TERRAIN_TO_RESOURCE, ResourceType } from '../types/resource.js';
+// Note: vertexScore handles gold hexes via numberPips (gold has number tokens)
 import { BoardGraph } from '../board/hex-grid.js';
 import { numberPips } from '../board/board-generator.js';
 
@@ -70,6 +71,8 @@ export function robberHexScore(
     (h) => h.coord.q === hexCoord.q && h.coord.r === hexCoord.r && h.coord.s === hexCoord.s
   );
   if (!tile || !tile.numberToken) return -100;
+  // Don't place robber on sea hexes
+  if (tile.terrain === Terrain.Sea) return -100;
 
   const pips = numberPips(tile.numberToken);
   let score = 0;

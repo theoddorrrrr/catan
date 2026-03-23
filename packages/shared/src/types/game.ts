@@ -18,7 +18,15 @@ export enum TurnPhase {
   RobberMove = 'robberMove',
   RobberSteal = 'robberSteal',
   PostRoll = 'postRoll',
+  GoldChoice = 'goldChoice', // Seafarers: players choose resource from gold hex
 }
+
+// Seafarers scenario identifiers
+export type SeafarersScenario =
+  | 'headingForNewShores'
+  | 'theFourIslands'
+  | 'throughTheDesert'
+  | 'theNewWorld';
 
 export interface GameConfig {
   playerCount: number;
@@ -27,6 +35,9 @@ export interface GameConfig {
   devCardsEnabled: boolean;
   turnTimeLimitSeconds: number | null;
   boardSeed: number | null;
+  // Seafarers
+  seafarersEnabled: boolean;
+  seafarersScenario: SeafarersScenario | null;
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -36,6 +47,8 @@ export const DEFAULT_CONFIG: GameConfig = {
   devCardsEnabled: true,
   turnTimeLimitSeconds: null,
   boardSeed: null,
+  seafarersEnabled: false,
+  seafarersScenario: null,
 };
 
 export interface TradeOffer {
@@ -71,7 +84,10 @@ export interface GameState {
   activeTradeOffer: TradeOffer | null;
 
   robberHex: HexCoord;
+  pirateHex: HexCoord | null; // Seafarers: pirate on a sea hex
   playersNeedingDiscard: string[];
+  // Seafarers: gold hex resource choice pending
+  playersNeedingGoldChoice: Array<{ playerId: string; count: number }>;
 
   longestRoadPlayerId: string | null;
   longestRoadLength: number;

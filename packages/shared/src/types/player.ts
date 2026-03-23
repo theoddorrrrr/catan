@@ -30,6 +30,7 @@ export interface Player {
   settlements: VertexId[];
   cities: VertexId[];
   roads: EdgeId[];
+  ships: EdgeId[]; // Seafarers: ships on sea edges
 
   hasLongestRoad: boolean;
   hasLargestArmy: boolean;
@@ -39,6 +40,7 @@ export interface Player {
   remainingSettlements: number;
   remainingCities: number;
   remainingRoads: number;
+  remainingShips: number; // Seafarers: 15 ships per player
 }
 
 export function createPlayer(
@@ -60,6 +62,7 @@ export function createPlayer(
     settlements: [],
     cities: [],
     roads: [],
+    ships: [],
     hasLongestRoad: false,
     hasLargestArmy: false,
     victoryPoints: 0,
@@ -67,5 +70,6 @@ export function createPlayer(
     remainingSettlements: 5,
     remainingCities: 4,
     remainingRoads: 15,
+    remainingShips: 15,
   };
 }

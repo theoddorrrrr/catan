@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LobbyRoom, ALL_PLAYER_COLORS } from '@catan/shared';
+import { LobbyRoom, ALL_PLAYER_COLORS, SeafarersScenario, getScenarioNames } from '@catan/shared';
 import { socketManager, ConnectionStatus } from '../network/socket-manager';
 import { PLAYER_COLORS } from '../renderer/colors';
 
@@ -56,6 +56,18 @@ export function LobbyView({ roomCode, playerId, onGameStart, onLeave }: LobbyVie
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  }
+
+  function toggleSeafarers() {
+    if (!room || !isHost) return;
+    const enabled = !room.config.seafarersEnabled;
+    const scenario = enabled ? getScenarioNames()[0].id : null;
+    socketManager.setConfig({ seafarersEnabled: enabled, seafarersScenario: scenario });
+  }
+
+  function setScenario(scenario: string) {
+    if (!room || !isHost) return;
+    socketManager.setConfig({ seafarersScenario: scenario as SeafarersScenario });
   }
 
   function toggleSlot(index: number) {
@@ -217,6 +229,72 @@ export function LobbyView({ roomCode, playerId, onGameStart, onLeave }: LobbyVie
             </div>
           ))}
         </div>
+
+        {/* Expansion settings (host only) */}
+        {isHost && room && (
+          <div style={{
+            borderTop: '1px solid #333',
+            paddingTop: '12px',
+            marginBottom: '12px',
+          }}>
+            <div style={{ fontSize: '0.8em', color: '#888', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              Expansion
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.9em' }}>
+                <input
+                  type="checkbox"
+                  checked={!!room.config.seafarersEnabled}
+                  onChange={toggleSeafarers}
+                  style={{ accentColor: '#3498db' }}
+                />
+                Seafarers
+              </label>
+            </div>
+            {room.config.seafarersEnabled && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.8em', color: '#888' }}>Scenario:</span>
+                <select
+                  value={room.config.seafarersScenario || ''}
+                  onChange={(e) => setScenario(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '5px 8px',
+                    borderRadius: '4px',
+                    border: '1px solid #444',
+                    background: '#0e0e1a',
+                    color: '#eee',
+                    fontSize: '0.85em',
+                  }}
+                >
+                  {getScenarioNames().map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Show expansion info for non-host */}
+        {!isHost && room?.config.seafarersEnabled && (
+          <div style={{
+            borderTop: '1px solid #333',
+            paddingTop: '12px',
+            marginBottom: '12px',
+            fontSize: '0.85em',
+            color: '#3498db',
+          }}>
+            Seafarers expansion enabled
+            {room.config.seafarersScenario && (
+              <span style={{ color: '#888' }}>
+                {' — '}{getScenarioNames().find((s) => s.id === room.config.seafarersScenario)?.name || room.config.seafarersScenario}
+              </span>
+            )}
+          </div>
+        )}
 
         {error && (
           <p style={{ color: '#e74c3c', fontSize: '0.85em', textAlign: 'center', marginBottom: '8px' }}>{error}</p>

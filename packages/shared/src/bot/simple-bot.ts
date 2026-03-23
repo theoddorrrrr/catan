@@ -16,11 +16,14 @@ import { BoardGraph } from '../board/hex-grid.js';
 import {
   getValidSettlementVertices,
   getValidRoadEdges,
+  getValidShipEdges,
   getValidInitialSettlementVertices,
   getValidRoadEdgesFromVertex,
   getTradeRate,
   getPlayersOnHex,
+  getPlayersWithShipsOnHex,
 } from '../engine/board-query.js';
+import { Terrain } from '../types/resource.js';
 import { vertexScore, robberHexScore } from './bot-evaluator.js';
 
 export class SimpleBot implements BotStrategy {
@@ -145,8 +148,52 @@ export class SimpleBot implements BotStrategy {
     return bestTarget;
   }
 
+  chooseGoldResource(state: GameState, playerId: string): ResourceType {
+    const player = state.players.find(p => p.id === playerId)!;
+    // Pick the resource we have the least of
+    let bestResource = ResourceType.Brick;
+    let minCount = Infinity;
+    for (const r of ALL_RESOURCES) {
+      if (player.resources[r] < minCount) {
+        minCount = player.resources[r];
+        bestResource = r;
+      }
+    }
+    return bestResource;
+  }
+
+  choosePirateHex(state: GameState, playerId: string, graph: BoardGraph): HexCoord | null {
+    // Choose a sea hex that has opponent ships
+    let bestHex: HexCoord | null = null;
+    let bestScore = -Infinity;
+
+    for (const hex of state.board.hexes) {
+      if (hex.terrain !== Terrain.Sea) continue;
+      if (state.pirateHex && hex.coord.q === state.pirateHex.q && hex.coord.r === state.pirateHex.r) continue;
+
+      const shipOwners = getPlayersWithShipsOnHex(state, graph, hex.coord)
+        .filter(id => id !== playerId);
+      if (shipOwners.length > 0) {
+        const score = shipOwners.length * 10;
+        if (score > bestScore) {
+          bestScore = score;
+          bestHex = hex.coord;
+        }
+      }
+    }
+    return bestHex;
+  }
+
   chooseAction(state: GameState, playerId: string, graph: BoardGraph): GameAction {
     const player = state.players.find((p) => p.id === playerId)!;
+
+    // Handle gold choice phase
+    if (state.turnPhase === TurnPhase.GoldChoice) {
+      const pending = state.playersNeedingGoldChoice.find(p => p.playerId === playerId);
+      if (pending) {
+        return { type: 'chooseGoldResource', resource: this.chooseGoldResource(state, playerId) };
+      }
+    }
 
     // Handle robber phases
     if (state.turnPhase === TurnPhase.RobberDiscard) {
@@ -156,6 +203,13 @@ export class SimpleBot implements BotStrategy {
     }
 
     if (state.turnPhase === TurnPhase.RobberMove) {
+      // In Seafarers, bot can move pirate instead of robber
+      if (state.config.seafarersEnabled) {
+        const pirateHex = this.choosePirateHex(state, playerId, graph);
+        if (pirateHex) {
+          return { type: 'movePirate', hex: pirateHex };
+        }
+      }
       const hex = this.chooseRobberHex(state, playerId, graph);
       return { type: 'moveRobber', hex };
     }
@@ -260,6 +314,30 @@ export class SimpleBot implements BotStrategy {
           }
         }
         return { type: 'buildRoad', edgeId: bestEdge };
+      }
+    }
+
+    // Priority 3.5: Build ship (Seafarers) to expand sea network
+    if (
+      state.config.seafarersEnabled &&
+      hasResources(player.resources, BUILDING_COSTS.ship) &&
+      player.remainingShips > 0
+    ) {
+      const validShipEdges = getValidShipEdges(state, graph, playerId);
+      if (validShipEdges.length > 0) {
+        let bestEdge = validShipEdges[0];
+        let bestScore = -Infinity;
+        for (const edgeId of validShipEdges) {
+          const [v1, v2] = graph.edgeToVertices.get(edgeId)!;
+          const s1 = vertexScore(v1, state, graph);
+          const s2 = vertexScore(v2, state, graph);
+          const score = Math.max(s1, s2);
+          if (score > bestScore) {
+            bestScore = score;
+            bestEdge = edgeId;
+          }
+        }
+        return { type: 'buildShip', edgeId: bestEdge };
       }
     }
 
